@@ -9,6 +9,8 @@ from shapely.geometry import shape
 from scipy.ndimage import binary_closing
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
+import pandas as pd   # ✅ ADD THIS
+
 
 
 def process_change(img2023_path, img2025_path, output_dir):
@@ -133,162 +135,12 @@ def process_change(img2023_path, img2025_path, output_dir):
 
     return png_path, tif_path, zip_path
 
-
-
-# def process_spatial_join(main_path, change_path, output_dir):
-#     os.makedirs(output_dir, exist_ok=True)
-
-#     shp_output = os.path.join(output_dir, "joined_output.shp")
-#     excel_output = os.path.join(output_dir, "joined_output.xlsx")
-
-#     # ✅ Check file existence
-#     if not os.path.exists(main_path):
-#         raise FileNotFoundError(f"Main file not found: {main_path}")
-
-#     if not os.path.exists(change_path):
-#         raise FileNotFoundError(f"Change file not found: {change_path}")
-
-#     # Load files
-#     main = gpd.read_file(main_path)
-#     change = gpd.read_file(change_path)
-
-#     # ✅ CRS handling (fix missing .prj issue)
-#     if main.crs is None:
-#         raise ValueError("Main shapefile has no CRS (.prj missing)")
-
-#     if change.crs is None:
-#         raise ValueError("Change shapefile has no CRS (.prj missing)")
-
-#     if main.crs != change.crs:
-#         change = change.to_crs(main.crs)
-
-#     # Spatial join
-#     joined = gpd.sjoin(
-#         main,
-#         change[['Id', 'geometry']],
-#         how='left',
-#         predicate='intersects'
-#     )
-
-#     # Cleanup
-#     if 'index_right' in joined.columns:
-#         joined = joined.drop(columns=['index_right'])
-
-#     # ✅ Save shapefile
-#     joined.to_file(shp_output)
-
-#     # ✅ Convert to Excel
-#     excel_df = joined.copy()
-#     excel_df['geometry'] = excel_df['geometry'].apply(
-#         lambda g: g.wkt if g else None
-#     )
-
-#     try:
-#         excel_df.to_excel(excel_output, index=False)
-#     except Exception:
-#         raise Exception("Excel export failed. Install openpyxl: pip install openpyxl")
-
-#     # Stats
-#     total = len(joined)
-#     changed = joined['Id'].notna().sum()
-#     unchanged = joined['Id'].isna().sum()
-
-#     return {
-#         "total": total,
-#         "changed": changed,
-#         "unchanged": unchanged,
-#         "shapefile": shp_output,
-#         "excel": excel_output
-#     }
-
-
-
-# import geopandas as gpd
-# import os
-
-# # Fix missing .shx automatically
-# os.environ["SHAPE_RESTORE_SHX"] = "YES"
-
-
-# def process_spatial_join(main_path, change_path, output_dir):
-#     os.makedirs(output_dir, exist_ok=True)
-
-#     shp_output = os.path.join(output_dir, "joined_output.shp")
-#     excel_output = os.path.join(output_dir, "joined_output.xlsx")
-
-#     # Load files
-#     main = gpd.read_file(main_path)
-#     change = gpd.read_file(change_path)
-
-#     print("MAIN CRS:", main.crs)
-#     print("CHANGE CRS:", change.crs)
-
-#     # CRS check
-#     if main.crs != change.crs:
-#         change = change.to_crs(main.crs)
-
-#     # 🔥 Detect ID column dynamically
-#     possible_cols = ['Id', 'id', 'ID', 'fid', 'FID', 'objectid']
-
-#     id_col = None
-#     for col in possible_cols:
-#         if col in change.columns:
-#             id_col = col
-#             break
-
-#     if id_col is None:
-#         raise Exception(f"No ID column found. Available columns: {list(change.columns)}")
-
-#     print("Using ID column:", id_col)
-
-#     # Spatial join
-#     joined = gpd.sjoin(
-#         main,
-#         change[[id_col, 'geometry']],
-#         how='left',
-#         predicate='intersects'
-#     )
-
-#     # Cleanup
-#     if 'index_right' in joined.columns:
-#         joined = joined.drop(columns=['index_right'])
-
-#     # Save shapefile
-#     joined.to_file(shp_output)
-
-#     # Convert to Excel
-#     excel_df = joined.copy()
-#     excel_df['geometry'] = excel_df['geometry'].apply(
-#         lambda g: g.wkt if g else None
-#     )
-#     excel_df.to_excel(excel_output, index=False)
-
-#     # Stats
-#     total = len(joined)
-#     changed = joined[id_col].notna().sum()
-#     unchanged = joined[id_col].isna().sum()
-
-#     return {
-#         "total": total,
-#         "changed": int(changed),
-#         "unchanged": int(unchanged),
-#         "shapefile": shp_output,
-#         "excel": excel_output
-#     }
-
-
-import geopandas as gpd
-import os
-import pandas as pd
-# Fix missing .shx issue
 os.environ["SHAPE_RESTORE_SHX"] = "YES"
 def process_spatial_join(main_path, change_path, output_dir):
     """
     Perform spatial join and return clean change detection result
     """
-
     os.makedirs(output_dir, exist_ok=True)
-
     shp_output = os.path.join(output_dir, "joined_output.shp")
     excel_output = os.path.join(output_dir, "joined_output.xlsx")
 

@@ -3,9 +3,9 @@ from .views import download_shapefile, logout_api, signup_api, login_api, logout
 from myapp import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
+    path('home/', views.home, name='home'),
     #api endpoints
-    path('upload/', upload_images, name='upload'),
+    path('', upload_images, name='upload'),
     path('run-spatial-join/', spatial_join_view, name='result'),
     path('download-excel/', download_excel, name='download_excel'),
     path('download-shapefile/', download_shapefile, name='download_shapefile'),
