@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    .login-wrapper {
+        min-height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .login-card {
+        padding: 30px;
+        border-radius: 15px;
+        width: 350px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+</style>
+
+<div class="login-wrapper">
+
+    <div class="card login-card bg-white">
+        <h3 class="text-center mb-3">🔐 Login</h3>
+
+        <input type="text" id="username" class="form-control mb-2" placeholder="Username">
+        <input type="password" id="password" class="form-control mb-3" placeholder="Password">
+
+        <button onclick="login()" class="btn btn-primary w-100">Login</button>
+
+        <p class="text-center mt-3">
+            Don't have an account? <a href="/signup/">Signup</a>
+        </p>
+
+        <p id="msg" class="text-center mt-2 text-danger"></p>
+    </div>
+
+</div>
+
+<script>
+function login() {
+    fetch('/api/login/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')   // 🔥 FIX
+        },
+        body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById("msg").innerText = data.error;
+        } else {
+            window.location.href = "/";
+        }
+    });
+}
+
+// 🔥 CSRF FIX FUNCTION
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock content %}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<style>
+    .signup-wrapper {
+        min-height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .signup-card {
+        padding: 30px;
+        border-radius: 15px;
+        width: 350px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+</style>
+
+<div class="signup-wrapper">
+
+    <div class="card signup-card bg-white">
+        <h3 class="text-center mb-3">📝 Signup</h3>
+
+        <input type="text" id="username" class="form-control mb-2" placeholder="Username">
+        <input type="email" id="email" class="form-control mb-2" placeholder="Email">
+        <input type="password" id="password" class="form-control mb-3" placeholder="Password">
+
+        <button onclick="signup()" class="btn btn-success w-100">Signup</button>
+
+        <p class="text-center mt-3">
+            Already have an account? <a href="/login/">Login</a>
+        </p>
+
+        <p id="msg" class="text-center mt-2 text-danger"></p>
+    </div>
+
+</div>
+
+<script>
+function signup() {
+    fetch('/api/signup/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')   // 🔥 FIX
+        },
+        body: JSON.stringify({
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error || data.username) {
+            document.getElementById("msg").innerText = JSON.stringify(data);
+        } else {
+            alert("Signup successful!");
+            window.location.href = "/login/";
+        }
+    });
+}
+
+// 🔥 CSRF helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}
