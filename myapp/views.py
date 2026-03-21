@@ -209,25 +209,26 @@ from myapp.serializers import SignupSerializer, LoginSerializer, SpatialJoinResu
 
 # ✅ SIGNUP
 
-@csrf_exempt
+
 @api_view(['POST'])
+@csrf_exempt
 def signup_api(request):
     data = request.data.copy()
+    data = {k: v for k, v in data.items()}  # force normal dict
 
-    # Normalize keys for typos and alternate spelling
-    if 'name' in data and not data.get('username'):
-        data['username'] = data['name']
-    if 'usenama' in data and not data.get('username'):
-        data['username'] = data['usenama']
+    if not data.get('username'):
+        data['username'] = data.get('name') or data.get('usenama')
 
-    if 'passwod' in data and not data.get('password'):
-        data['password'] = data['passwod']
+    if not data.get('password'):
+        data['password'] = data.get('passwod')
 
-    # confirm password can be sent as confirm_password or confirm-passowd
-    if 'confirm-passowd' in data and not data.get('confirm_password'):
-        data['confirm_password'] = data['confirm-passowd']
-    if 'confirm_passowd' in data and not data.get('confirm_password'):
-        data['confirm_password'] = data['confirm_passowd']
+    if not data.get('confirm_password'):
+        data['confirm_password'] = (
+            data.get('confirm-passowd') or
+            data.get('confirm_passowd')
+        )
+
+    print("FINAL DATA:", data)  # debug
 
     serializer = SignupSerializer(data=data)
 
@@ -241,30 +242,10 @@ def signup_api(request):
     return Response(serializer.errors, status=400)
 
 
-@csrf_exempt
-@api_view(['GET'])
-def list_excel_files(request):
-    results = SpatialJoinResult.objects.all().order_by('-created_at')
-    serializer = SpatialJoinResultSerializer(results, many=True, context={'request': request})
-    return Response(serializer.data)
-
-
-
-
-# @api_view(['GET'])
-# def list_excel_files(request):
-#     if not request.user.is_authenticated:
-#         return Response({"error": "Login required"}, status=401)
-
-#     results = SpatialJoinResult.objects.filter(user=request.user).order_by('-created_at')
-
-#     serializer = SpatialJoinResultSerializer(results, many=True, context={'request': request})
-#     return Response(serializer.data)
-
-
-
 # ✅ LOGIN
+
 @api_view(['POST'])
+@csrf_exempt
 def login_api(request):
     data = request.data.copy()
     if 'usename' in data and not data.get('username'):
@@ -296,6 +277,29 @@ def login_api(request):
 def logout_api(request):
     logout(request)
     return Response({"message": "Logged out successfully"})
+
+@csrf_exempt
+@api_view(['GET'])
+def list_excel_files(request):
+    results = SpatialJoinResult.objects.all().order_by('-created_at')
+    serializer = SpatialJoinResultSerializer(results, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+
+
+# @api_view(['GET'])
+# def list_excel_files(request):
+#     if not request.user.is_authenticated:
+#         return Response({"error": "Login required"}, status=401)
+
+#     results = SpatialJoinResult.objects.filter(user=request.user).order_by('-created_at')
+
+#     serializer = SpatialJoinResultSerializer(results, many=True, context={'request': request})
+#     return Response(serializer.data)
+
+
+
 
 
 
