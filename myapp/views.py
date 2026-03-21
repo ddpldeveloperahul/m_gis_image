@@ -10,6 +10,8 @@ import shutil
 from .models import SpatialJoinResult,ChangeResult
 from django.contrib.auth.models import User
 from django.core.files import File
+from django.views.decorators.csrf import csrf_exempt
+
 
 def home(request):
     return render(request, 'base.html')
@@ -206,6 +208,8 @@ from myapp.serializers import SignupSerializer, LoginSerializer, SpatialJoinResu
 
 
 # ✅ SIGNUP
+
+@csrf_exempt
 @api_view(['POST'])
 def signup_api(request):
     serializer = SignupSerializer(data=request.data)
@@ -219,6 +223,8 @@ def signup_api(request):
 
     return Response(serializer.errors, status=400)
 
+
+@csrf_exempt
 @api_view(['GET'])
 def list_excel_files(request):
     results = SpatialJoinResult.objects.all().order_by('-created_at')
