@@ -212,7 +212,24 @@ from myapp.serializers import SignupSerializer, LoginSerializer, SpatialJoinResu
 @csrf_exempt
 @api_view(['POST'])
 def signup_api(request):
-    serializer = SignupSerializer(data=request.data)
+    data = request.data.copy()
+
+    # Normalize keys for typos and alternate spelling
+    if 'name' in data and not data.get('username'):
+        data['username'] = data['name']
+    if 'usenama' in data and not data.get('username'):
+        data['username'] = data['usenama']
+
+    if 'passwod' in data and not data.get('password'):
+        data['password'] = data['passwod']
+
+    # confirm password can be sent as confirm_password or confirm-passowd
+    if 'confirm-passowd' in data and not data.get('confirm_password'):
+        data['confirm_password'] = data['confirm-passowd']
+    if 'confirm_passowd' in data and not data.get('confirm_password'):
+        data['confirm_password'] = data['confirm_passowd']
+
+    serializer = SignupSerializer(data=data)
 
     if serializer.is_valid():
         user = serializer.save()
@@ -249,7 +266,11 @@ def list_excel_files(request):
 # ✅ LOGIN
 @api_view(['POST'])
 def login_api(request):
-    serializer = LoginSerializer(data=request.data)
+    data = request.data.copy()
+    if 'usename' in data and not data.get('username'):
+        data['username'] = data['usename']
+
+    serializer = LoginSerializer(data=data)
 
     if serializer.is_valid():
         username = serializer.validated_data['username']

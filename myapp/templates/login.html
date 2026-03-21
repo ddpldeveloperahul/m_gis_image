@@ -22,8 +22,8 @@
     <div class="card login-card bg-white">
         <h3 class="text-center mb-3">🔐 Login</h3>
 
-        <input type="text" id="username" class="form-control mb-2" placeholder="Username">
-        <input type="password" id="password" class="form-control mb-3" placeholder="Password">
+        <input type="text" id="username" class="form-control mb-2" placeholder="Username (required)">
+        <input type="password" id="password" class="form-control mb-3" placeholder="Password (required)">
 
         <button onclick="login()" class="btn btn-primary w-100">Login</button>
 
@@ -46,6 +46,7 @@ function login() {
         },
         body: JSON.stringify({
             username: document.getElementById('username').value,
+            usename: document.getElementById('username').value,
             password: document.getElementById('password').value
         })
     })

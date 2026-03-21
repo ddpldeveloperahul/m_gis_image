@@ -15,9 +15,11 @@ urlpatterns = [
     path('api/signup/', signup_api),
     path('api/login/', login_api),
     path('api/logout/', logout_api),
+    path('api/excel-files/', views.list_excel_files, name='list_excel_files'),
+
     
     
     path('login/', views.login_page),
     path('signup/', views.signup_page),
-    path('api/excel-files/', views.list_excel_files, name='list_excel_files'),
+   
 ]
