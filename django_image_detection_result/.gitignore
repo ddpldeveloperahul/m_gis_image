@@ -1,0 +1,73 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# =========================
+# Django
+# =========================
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# Django migrations (optional)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# =========================
+# Media & Static
+# =========================
+media/
+staticfiles/
+
+# Uploaded & generated files
+uploads/
+outputs/
+
+# =========================
+# GIS / Data files
+# =========================
+*.tif
+*.tiff
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.geojson
+*.zip
+
+# =========================
+# Environment Variables
+# =========================
+.env
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Jupyter / temp
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Build / cache
+# =========================
+*.egg-info/
+dist/
+build/
