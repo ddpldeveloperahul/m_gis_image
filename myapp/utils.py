@@ -1,6 +1,7 @@
 import rasterio
 import numpy as np
 import os
+import cv2
 import geopandas as gpd
 import zipfile
 from rasterio.warp import reproject, Resampling
@@ -38,6 +39,9 @@ def process_change(img2023_path, img2025_path, output_dir):
             dst_crs=crs,
             resampling=Resampling.bilinear
         )
+
+        import matplotlib
+        matplotlib.use('Agg')   # 🔥 MUST ADD THIS
 
     # ---------------- NORMALIZATION ----------------
     def normalize(img):

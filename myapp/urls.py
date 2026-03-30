@@ -16,10 +16,15 @@ urlpatterns = [
     path('api/login/', login_api),
     path('api/logout/', logout_api),
     path('api/excel-files/', views.list_excel_files, name='list_excel_files'),
+    path('spatial-join/', views.spatial_join_view, name='spatial_join'),
 
     
     
     path('login/', views.login_page),
     path('signup/', views.signup_page),
+
+    
    
 ]
+
+
