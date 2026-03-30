@@ -225,8 +225,13 @@ def spatial_join_view(request):
                         return os.path.join(root, file)
             return None
 
+<<<<<<< HEAD
         main_shp = find_shp(main_dir)
         change_shp = find_shp(change_dir)
+=======
+        main_shp = find_shp(change_dir)
+        change_shp = find_shp(main_dir)
+>>>>>>> fa76cc3a (add the new updatedfk)
 
         print("MAIN SHP:", main_shp)
         print("CHANGE SHP:", change_shp)
