@@ -1,0 +1,947 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    .page-wrapper {
+        min-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f4f6f9;
+        padding: 20px;
+    }
+
+    .container-custom {
+        max-width: 1000px;
+        width: 100%;
+    }
+
+    .card {
+        border-radius: 12px;
+        padding: 25px 35px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border: 1px solid #eaeaea;
+    }
+
+    .title {
+        font-weight: 600;
+        font-size: 1.75rem;
+        color: #2c3e50;
+    }
+
+    .image-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 700px;
+        height: clamp(460px, 62vh, 620px);
+        min-height: 0;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        background: #f8f9fa;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        margin: 0 auto;
+    }
+
+    .image-wrapper,
+    .image-wrapper * {
+        touch-action: none;
+    }
+
+    .image-wrapper.can-pan {
+        cursor: grab;
+    }
+
+    .image-wrapper.is-panning {
+        cursor: grabbing;
+    }
+
+    .result-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        transition: transform 0.2s ease-in-out;
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+
+    .image-wrapper.is-panning .result-img,
+    .image-wrapper.is-panning .image-mode {
+        transition: none !important;
+    }
+
+    .image-mode {
+        position: absolute;
+        inset: 0;
+        padding: 0;
+        transform-origin: center center;
+    }
+
+    .image-mode img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+    }
+
+    .compare-reveal {
+        position: absolute;
+        inset: 0;
+        clip-path: inset(0 0 50% 0);
+    }
+
+    .btn-custom {
+        font-weight: 600;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 1rem;
+    }
+
+    .zoom-controls {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .zoom-controls .btn {
+        font-size: 0.85rem;
+        padding: 6px 14px;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .slider-controls {
+        max-width: 700px;
+        margin: -6px auto 18px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 14px;
+        text-align: left;
+    }
+
+    .slider-card {
+        background: #f8fafc;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 10px 12px;
+    }
+
+    .slider-card label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+    }
+
+    .slider-card input[type="range"] {
+        width: 100%;
+    }
+
+    .overlay-picker-panel {
+        position: fixed;
+        top: 92px;
+        right: 20px;
+        width: 354px;
+        background: #ffffff;
+        border: 1px solid #e6e6e6;
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        padding: 16px 16px 14px;
+        z-index: 999;
+    }
+
+    .overlay-picker-panel.is-hidden {
+        display: none;
+    }
+
+    .overlay-picker-panel h6 {
+        margin-bottom: 14px;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+
+    .color-picker-shell {
+        display: grid;
+        grid-template-columns: 1fr 28px;
+        gap: 18px;
+        align-items: start;
+    }
+
+    .color-plane {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: crosshair;
+        border: 1px solid #cbd5e1;
+        background: hsl(240 100% 50%);
+    }
+
+    .color-plane::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to right, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    .color-plane::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, #000000 0%, rgba(0, 0, 0, 0) 100%);
+    }
+
+    .picker-handle {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.45);
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .hue-strip {
+        position: relative;
+        width: 28px;
+        height: 100%;
+        min-height: 260px;
+        border-radius: 999px;
+        border: 1px solid #cbd5e1;
+        cursor: ns-resize;
+        background: linear-gradient(
+            to bottom,
+            rgb(255, 0, 0) 0%,
+            rgb(255, 255, 0) 17%,
+            rgb(0, 255, 0) 33%,
+            rgb(0, 255, 255) 50%,
+            rgb(0, 0, 255) 67%,
+            rgb(255, 0, 255) 83%,
+            rgb(255, 0, 0) 100%
+        );
+    }
+
+    .hue-handle {
+        position: absolute;
+        left: 50%;
+        width: 30px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid rgba(15, 23, 42, 0.35);
+        transform: translate(-50%, -50%);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+        pointer-events: none;
+    }
+
+    .bottom-links .btn {
+        font-size: 0.9rem;
+        padding: 6px 20px;
+        color: #555;
+        border-color: #ccc;
+    }
+
+    .no-select {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+    }
+
+    .layer-panel {
+        position: fixed;
+        top: 92px;
+        left: 20px;
+        width: 220px;
+        background: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        border: 1px solid #e6e6e6;
+        z-index: 999;
+        text-align: left;
+    }
+
+    .layer-panel.is-hidden {
+        display: none;
+    }
+
+    .layer-panel h6 {
+        margin-bottom: 12px;
+        font-weight: 700;
+    }
+
+    .layer-panel label {
+        display: block;
+        margin-bottom: 2px;
+        cursor: pointer;
+    }
+
+    .layer-file-type {
+        display: block;
+        margin-bottom: 10px;
+        margin-left: 24px;
+        color: #6c757d;
+        font-size: 0.78rem;
+        word-break: break-word;
+    }
+
+    .layer-panel small {
+        color: #6c757d;
+        display: block;
+        margin-top: 8px;
+    }
+
+    #sliderLine {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        height: 3px;
+        width: 100%;
+        background: #dc3545;
+        cursor: ns-resize;
+        z-index: 10;
+    }
+
+    @media (max-width: 1200px) {
+        .layer-panel {
+            position: static;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .page-wrapper {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .image-wrapper {
+            max-width: 100%;
+            height: 420px;
+        }
+
+        .slider-controls {
+            grid-template-columns: 1fr;
+            max-width: 100%;
+        }
+
+        .overlay-picker-panel {
+            position: static;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .color-picker-shell {
+            grid-template-columns: 1fr 28px;
+        }
+
+        .hue-strip {
+            min-height: 240px;
+        }
+    }
+</style>
+
+<div class="page-wrapper">
+    <div id="layerPanel" class="layer-panel">
+        <h6>Layers</h6>
+        <label><input type="checkbox" id="chkBack"> {{ img23_name }}</label>
+        <span class="layer-file-type"></span>
+        <label><input type="checkbox" id="chkFront"> {{ img25_name }}</label>
+        <span class="layer-file-type"></span>
+        <label><input type="checkbox" id="chkBlue" checked> {{ result_shp_name }}</label>
+        <span class="layer-file-type">layer preview</span>
+        {% comment %} <button type="button" class="btn btn-sm btn-success mt-2" onclick="applyLayers()">Apply Selection</button> {% endcomment %}
+        {% comment %} <small>Checkbox change hote hi preview update ho jayega.</small> {% endcomment %}
+    </div>
+
+    <div id="overlayPickerPanel" class="overlay-picker-panel is-hidden">
+        <h6>Overlay RGB</h6>
+        <div class="color-picker-shell">
+            <div id="colorPlane" class="color-plane">
+                <div id="colorPlaneHandle" class="picker-handle"></div>
+            </div>
+            <div id="hueStrip" class="hue-strip">
+                <div id="hueHandle" class="hue-handle"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-custom">
+        <div class="card bg-white text-center">
+            <h2 class="title mb-1">Change Detection Result</h2>
+
+            <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                Threshold: <strong class="text-dark">0.6</strong>
+            </p>
+
+            <div class="image-wrapper mb-4 no-select" id="wrapper">
+                <img id="zoomImage" src="{{ result_png }}" class="result-img" draggable="false">
+
+                <div id="layerBox" class="image-mode" style="display:none;">
+                    <img id="backLayer" src="{{ img23 }}" class="result-img" style="display:none;" draggable="false">
+                    <img id="frontLayer" src="{{ img25 }}" class="result-img" style="display:none;" draggable="false">
+                    <img id="blueLayer" src="{{ result_png }}" class="result-img" style="display:none; opacity:0.45;" draggable="false">
+                </div>
+
+                <div id="compareBox" class="image-mode" style="display:none;">
+                    <img id="baseImgCompare" src="{{ img23 }}" class="result-img" draggable="false">
+                    <div id="compareReveal" class="compare-reveal">
+                        <img id="compareRevealBack" src="{{ img23 }}" class="result-img" style="display:none;" draggable="false">
+                        <img id="compareRevealFront" src="{{ img25 }}" class="result-img" style="display:none;" draggable="false">
+                        <img id="compareRevealBlue" src="{{ result_png }}" class="result-img" style="display:none; opacity:0.35; pointer-events:none;" draggable="false">
+                    </div>
+                    <div id="sliderLine"></div>
+                </div>
+            </div>
+
+            <div class="slider-controls">
+                <div class="slider-card">
+                    <label for="blueIntensitySlider">
+                        <span>Color Intensity</span>
+                        <span id="blueIntensityValue">45%</span>
+                    </label>
+                    <input type="range" id="blueIntensitySlider" min="0" max="100" value="45">
+                </div>
+                <div class="slider-card">
+                    <label for="zoomSlider">
+                        <span>Zoom</span>
+                        <span id="zoomValue">100%</span>
+                    </label>
+                    <input type="range" id="zoomSlider" min="100" max="250" value="100" step="10">
+                </div>
+            </div>
+
+            <div class="zoom-controls mb-4">
+                <button class="btn btn-outline-secondary" type="button" onclick="resetImage()">Reset</button>
+                <span class="mx-2"></span>
+                <button class="btn btn-outline-primary" type="button" onclick="toggleLayerPanel()">Layers</button>
+                <button class="btn btn-outline-info" type="button" onclick="toggleOverlayPicker()">Change Color</button>
+                <button class="btn btn-dark" type="button" onclick="startCompare()">Compare</button>
+            </div>
+
+            <div class="d-grid gap-2 mb-4">
+                <a href="{{ result_tif }}" download class="btn btn-success btn-custom">
+                    Download TIFF
+                </a>
+                <a href="{{ result_shp }}" download class="btn btn-primary btn-custom">
+                    Download Shapefile (ZIP)
+                </a>
+            </div>
+
+            <div class="bottom-links d-flex justify-content-center gap-3 mt-2">
+                <a href="/" class="btn btn-outline-secondary">
+                    Upload Again
+                </a>
+                <a href="{% url 'spatial_join' %}?file={{ result_shp }}" class="btn btn-outline-secondary">
+                    Go to Spatial Join
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isSliderDragging = false;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panOriginX = 0;
+    let panOriginY = 0;
+    let activePanPointerId = null;
+
+    const resultImg = "{{ result_png }}";
+    const backImg = "{{ img23 }}";
+    const frontImg = "{{ img25 }}";
+
+    const zoomImage = document.getElementById("zoomImage");
+    const layerBox = document.getElementById("layerBox");
+    const compareBox = document.getElementById("compareBox");
+    const backLayer = document.getElementById("backLayer");
+    const frontLayer = document.getElementById("frontLayer");
+    const blueLayer = document.getElementById("blueLayer");
+    const baseImgCompare = document.getElementById("baseImgCompare");
+    const compareReveal = document.getElementById("compareReveal");
+    const compareRevealBack = document.getElementById("compareRevealBack");
+    const compareRevealFront = document.getElementById("compareRevealFront");
+    const compareRevealBlue = document.getElementById("compareRevealBlue");
+    const sliderLine = document.getElementById("sliderLine");
+    const wrapper = document.getElementById("wrapper");
+    const layerPanel = document.getElementById("layerPanel");
+    const overlayPickerPanel = document.getElementById("overlayPickerPanel");
+    const chkBack = document.getElementById("chkBack");
+    const chkFront = document.getElementById("chkFront");
+    const chkBlue = document.getElementById("chkBlue");
+    const blueIntensitySlider = document.getElementById("blueIntensitySlider");
+    const blueIntensityValue = document.getElementById("blueIntensityValue");
+    const zoomSlider = document.getElementById("zoomSlider");
+    const zoomValue = document.getElementById("zoomValue");
+    const colorPlane = document.getElementById("colorPlane");
+    const colorPlaneHandle = document.getElementById("colorPlaneHandle");
+    const hueStrip = document.getElementById("hueStrip");
+    const hueHandle = document.getElementById("hueHandle");
+
+    let blueOpacity = 0.45;
+    let overlayPreviewSrc = resultImg;
+    let overlayColor = { r: 0, g: 0, b: 255 };
+    let overlayHsv = { h: 240, s: 100, v: 100 };
+    let activePickerTarget = null;
+
+    const overlaySourceImage = new Image();
+    overlaySourceImage.addEventListener("load", recolorOverlayImage);
+    overlaySourceImage.src = resultImg;
+
+    function setWrapperAspectRatio() {
+    }
+
+    function getCurrentModeElement() {
+        if (compareBox.style.display === "block") {
+            return compareBox;
+        }
+
+        if (layerBox.style.display === "block") {
+            return layerBox;
+        }
+
+        return zoomImage;
+    }
+
+    function clampPanOffsets() {
+        const maxPanX = Math.max(0, ((scale - 1) * wrapper.clientWidth) / 2);
+        const maxPanY = Math.max(0, ((scale - 1) * wrapper.clientHeight) / 2);
+        panX = clamp(panX, -maxPanX, maxPanX);
+        panY = clamp(panY, -maxPanY, maxPanY);
+    }
+
+    function updatePanCursor() {
+        const canPan = scale > 1;
+        wrapper.classList.toggle("can-pan", canPan && !isPanning);
+        wrapper.classList.toggle("is-panning", isPanning);
+    }
+
+    function getBlueDisplaySrc() {
+        return overlayPreviewSrc || resultImg;
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    function hsvToRgb(h, s, v) {
+        const hue = ((h % 360) + 360) % 360;
+        const saturation = clamp(s, 0, 100) / 100;
+        const value = clamp(v, 0, 100) / 100;
+        const chroma = value * saturation;
+        const huePrime = hue / 60;
+        const x = chroma * (1 - Math.abs((huePrime % 2) - 1));
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+
+        if (huePrime >= 0 && huePrime < 1) {
+            red = chroma; green = x; blue = 0;
+        } else if (huePrime < 2) {
+            red = x; green = chroma; blue = 0;
+        } else if (huePrime < 3) {
+            red = 0; green = chroma; blue = x;
+        } else if (huePrime < 4) {
+            red = 0; green = x; blue = chroma;
+        } else if (huePrime < 5) {
+            red = x; green = 0; blue = chroma;
+        } else {
+            red = chroma; green = 0; blue = x;
+        }
+
+        const match = value - chroma;
+        return {
+            r: Math.round((red + match) * 255),
+            g: Math.round((green + match) * 255),
+            b: Math.round((blue + match) * 255),
+        };
+    }
+
+    function updateOverlayColorLabels() {
+        colorPlane.style.backgroundColor = `hsl(${overlayHsv.h} 100% 50%)`;
+        colorPlaneHandle.style.left = `${overlayHsv.s}%`;
+        colorPlaneHandle.style.top = `${100 - overlayHsv.v}%`;
+        hueHandle.style.left = "50%";
+        hueHandle.style.top = `${(overlayHsv.h / 360) * 100}%`;
+    }
+
+    function updateOverlaySources() {
+        const tintedSrc = getBlueDisplaySrc();
+        blueLayer.src = tintedSrc;
+        compareRevealBlue.src = tintedSrc;
+
+        if (zoomImage.dataset.currentLayer === "blue") {
+            zoomImage.src = tintedSrc;
+        }
+    }
+
+    function recolorOverlayImage() {
+        if (!overlaySourceImage.naturalWidth || !overlaySourceImage.naturalHeight) {
+            return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = overlaySourceImage.naturalWidth;
+        canvas.height = overlaySourceImage.naturalHeight;
+
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(overlaySourceImage, 0, 0);
+
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+
+        for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index + 3] === 0) {
+                continue;
+            }
+
+            pixels[index] = overlayColor.r;
+            pixels[index + 1] = overlayColor.g;
+            pixels[index + 2] = overlayColor.b;
+        }
+
+        context.putImageData(imageData, 0, 0);
+        overlayPreviewSrc = canvas.toDataURL("image/png");
+        updateOverlayColorLabels();
+        updateOverlaySources();
+        applyBlueIntensity();
+    }
+
+    function syncColorFromHsv() {
+        overlayColor = hsvToRgb(overlayHsv.h, overlayHsv.s, overlayHsv.v);
+        recolorOverlayImage();
+    }
+
+    function updateColorPlaneFromPointer(event) {
+        const rect = colorPlane.getBoundingClientRect();
+        const x = clamp(event.clientX - rect.left, 0, rect.width);
+        const y = clamp(event.clientY - rect.top, 0, rect.height);
+        overlayHsv.s = Math.round((x / rect.width) * 100);
+        overlayHsv.v = Math.round(100 - (y / rect.height) * 100);
+        syncColorFromHsv();
+    }
+
+    function updateHueFromPointer(event) {
+        const rect = hueStrip.getBoundingClientRect();
+        const y = clamp(event.clientY - rect.top, 0, rect.height);
+        overlayHsv.h = Math.round((y / rect.height) * 360);
+
+        if (overlayHsv.h >= 360) {
+            overlayHsv.h = 359;
+        }
+
+        syncColorFromHsv();
+    }
+
+    function resetOverlayColor() {
+        overlayHsv = { h: 240, s: 100, v: 100 };
+        syncColorFromHsv();
+    }
+
+    function applyScale() {
+        clampPanOffsets();
+        const transformValue = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        zoomImage.style.transform = transformValue;
+        layerBox.style.transform = transformValue;
+        compareBox.style.transform = transformValue;
+        zoomValue.textContent = `${Math.round(scale * 100)}%`;
+        zoomSlider.value = Math.round(scale * 100);
+        updatePanCursor();
+    }
+
+    function applyBlueIntensity() {
+        const activeOpacity = chkBlue.checked ? blueOpacity : 0;
+        blueLayer.style.opacity = `${activeOpacity}`;
+        compareRevealBlue.style.opacity = `${activeOpacity}`;
+        blueIntensityValue.textContent = `${Math.round(blueOpacity * 100)}%`;
+    }
+
+    function resetZoom() {
+        scale = 1;
+        panX = 0;
+        panY = 0;
+        activePanPointerId = null;
+        applyScale();
+    }
+
+    function setScale(nextScale) {
+        scale = clamp(nextScale, 1, 2.5);
+        applyScale();
+    }
+
+    function zoomIn() {
+        setScale(scale + 0.2);
+    }
+
+    function zoomOut() {
+        setScale(scale - 0.2);
+    }
+
+    function getSelectedLayers() {
+        const layers = [];
+
+        if (chkBack.checked) {
+            layers.push({ name: "back", src: backImg });
+        }
+
+        if (chkFront.checked) {
+            layers.push({ name: "front", src: frontImg });
+        }
+
+        if (chkBlue.checked) {
+            layers.push({ name: "blue", src: resultImg });
+        }
+
+        return layers;
+    }
+
+    function showSingleImage(src) {
+        compareBox.style.display = "none";
+        layerBox.style.display = "none";
+        zoomImage.style.display = "block";
+        zoomImage.dataset.currentLayer = src === resultImg ? "blue" : "image";
+        zoomImage.src = src === resultImg ? getBlueDisplaySrc() : src;
+        setWrapperAspectRatio(src);
+        applyScale();
+    }
+
+    function syncLayerStack(backElement, frontElement, blueElement) {
+        backElement.style.display = chkBack.checked ? "block" : "none";
+        frontElement.style.display = chkFront.checked ? "block" : "none";
+        blueElement.style.display = chkBlue.checked ? "block" : "none";
+
+        backElement.style.opacity = "1";
+        frontElement.style.opacity = chkBack.checked ? "0.65" : "1";
+        blueElement.style.opacity = chkBlue.checked ? `${blueOpacity}` : "0";
+    }
+
+    function applyLayers() {
+        const selectedLayers = getSelectedLayers();
+
+        compareBox.style.display = "none";
+
+        if (selectedLayers.length === 0) {
+            showSingleImage(resultImg);
+            return;
+        }
+
+        if (selectedLayers.length === 1) {
+            showSingleImage(selectedLayers[0].src);
+            return;
+        }
+
+        zoomImage.style.display = "none";
+        zoomImage.dataset.currentLayer = "stack";
+        layerBox.style.display = "block";
+
+        syncLayerStack(backLayer, frontLayer, blueLayer);
+        setWrapperAspectRatio(selectedLayers[0].src);
+        applyScale();
+    }
+
+    function resetImage() {
+        chkBack.checked = false;
+        chkFront.checked = false;
+        chkBlue.checked = true;
+        blueOpacity = 0.45;
+        blueIntensitySlider.value = "45";
+        applyBlueIntensity();
+        resetOverlayColor();
+        resetZoom();
+        applyLayers();
+    }
+
+    function toggleLayerPanel() {
+        layerPanel.classList.toggle("is-hidden");
+    }
+
+    function toggleOverlayPicker() {
+        overlayPickerPanel.classList.toggle("is-hidden");
+    }
+
+    function startCompare() {
+        const selectedLayers = getSelectedLayers();
+
+        if (selectedLayers.length < 2) {
+            alert("Compare ke liye kam se kam 2 layers select karo.");
+            return;
+        }
+
+        resetZoom();
+        zoomImage.style.display = "none";
+        zoomImage.dataset.currentLayer = "compare";
+        layerBox.style.display = "none";
+        compareBox.style.display = "block";
+
+        if (chkBack.checked) {
+            baseImgCompare.src = backImg;
+        } else if (chkFront.checked) {
+            baseImgCompare.src = frontImg;
+        } else {
+            baseImgCompare.src = resultImg;
+        }
+
+        syncLayerStack(compareRevealBack, compareRevealFront, compareRevealBlue);
+        setWrapperAspectRatio(baseImgCompare.src);
+
+        updateSlider(wrapper.clientHeight / 2);
+    }
+
+    function updateSlider(y) {
+        const rect = wrapper.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(y, rect.height));
+        const percentage = (pos / rect.height) * 100;
+
+        compareReveal.style.clipPath = `inset(0 0 ${100 - percentage}% 0)`;
+        sliderLine.style.top = `${pos}px`;
+    }
+
+    function stopPanning(pointerId = null) {
+        if (pointerId !== null && activePanPointerId !== null && pointerId !== activePanPointerId) {
+            return;
+        }
+
+        if (activePanPointerId !== null && wrapper.hasPointerCapture && wrapper.hasPointerCapture(activePanPointerId)) {
+            wrapper.releasePointerCapture(activePanPointerId);
+        }
+
+        isPanning = false;
+        activePanPointerId = null;
+        updatePanCursor();
+    }
+
+    sliderLine.addEventListener("pointerdown", (event) => {
+        if (compareBox.style.display !== "block") {
+            return;
+        }
+
+        event.stopPropagation();
+        isSliderDragging = true;
+        const rect = wrapper.getBoundingClientRect();
+        updateSlider(event.clientY - rect.top);
+    });
+
+    window.addEventListener("pointerup", () => {
+        isSliderDragging = false;
+        stopPanning();
+    });
+
+    window.addEventListener("pointermove", (event) => {
+        if (!isSliderDragging || compareBox.style.display !== "block") {
+            return;
+        }
+
+        const rect = wrapper.getBoundingClientRect();
+        updateSlider(event.clientY - rect.top);
+    });
+
+    wrapper.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const delta = event.deltaY < 0 ? 0.15 : -0.15;
+        setScale(scale + delta);
+    }, { passive: false });
+
+    wrapper.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target === sliderLine || scale <= 1) {
+            return;
+        }
+
+        event.preventDefault();
+        isPanning = true;
+        activePanPointerId = event.pointerId;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+        panOriginX = panX;
+        panOriginY = panY;
+
+        if (wrapper.setPointerCapture) {
+            wrapper.setPointerCapture(event.pointerId);
+        }
+
+        updatePanCursor();
+    });
+
+    wrapper.addEventListener("pointermove", (event) => {
+        if (!isPanning || event.pointerId !== activePanPointerId) {
+            return;
+        }
+
+        if ((event.buttons & 1) !== 1) {
+            stopPanning(event.pointerId);
+            return;
+        }
+
+        event.preventDefault();
+        panX = panOriginX + (event.clientX - panStartX);
+        panY = panOriginY + (event.clientY - panStartY);
+        applyScale();
+    });
+
+    wrapper.addEventListener("pointerup", (event) => {
+        stopPanning(event.pointerId);
+    });
+
+    wrapper.addEventListener("pointercancel", (event) => {
+        stopPanning(event.pointerId);
+    });
+
+    [chkBack, chkFront, chkBlue].forEach((checkbox) => {
+        checkbox.addEventListener("change", applyLayers);
+    });
+
+    blueIntensitySlider.addEventListener("input", () => {
+        blueOpacity = Number(blueIntensitySlider.value) / 100;
+        applyBlueIntensity();
+    });
+
+    colorPlane.addEventListener("pointerdown", (event) => {
+        activePickerTarget = "plane";
+        updateColorPlaneFromPointer(event);
+    });
+
+    hueStrip.addEventListener("pointerdown", (event) => {
+        activePickerTarget = "hue";
+        updateHueFromPointer(event);
+    });
+
+    window.addEventListener("pointermove", (event) => {
+        if (activePickerTarget === "plane") {
+            updateColorPlaneFromPointer(event);
+        } else if (activePickerTarget === "hue") {
+            updateHueFromPointer(event);
+        }
+    });
+
+    window.addEventListener("pointerup", () => {
+        activePickerTarget = null;
+    });
+
+    zoomSlider.addEventListener("input", () => {
+        setScale(Number(zoomSlider.value) / 100);
+    });
+
+    updateOverlayColorLabels();
+    applyBlueIntensity();
+    setWrapperAspectRatio(resultImg);
+    applyLayers();
+</script>
+
+{% endblock %}

@@ -1,86 +1,425 @@
 {% extends 'base.html' %}
-
 {% block content %}
 
 <style>
-    .signup-wrapper {
-        min-height: 80vh;
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    * {
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 100% !important;
+    }
+
+    #content-wrapper {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 85px);
         display: flex;
-        justify-content: center;
         align-items: center;
+        justify-content: center;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100%;
+        flex-grow: 1;
+    }
+
+    .signup-wrapper {
+        width: 100%;
+        max-width: 480px;
+        padding: 20px;
+        animation: slideInUp 0.6s ease;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .signup-card {
-        padding: 30px;
-        border-radius: 15px;
-        width: 350px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        background: white;
+        border-radius: 24px;
+        padding: 48px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .signup-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, transparent, #667eea, #764ba2, transparent);
+    }
+
+    .signup-header {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .signup-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        display: inline-block;
+        animation: bounce 2s infinite;
+        font-weight: bold;
+        color: #667eea;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .signup-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1a202c;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+    }
+
+    .signup-subtitle {
+        font-size: 14px;
+        color: #718096;
+        font-weight: 400;
+    }
+
+    .signup-form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .form-group {
+        animation: fadeIn 0.6s ease forwards;
+        opacity: 0;
+    }
+
+    .form-group:nth-child(1) { animation-delay: 0.1s; }
+    .form-group:nth-child(2) { animation-delay: 0.2s; }
+    .form-group:nth-child(3) { animation-delay: 0.3s; }
+    .form-group:nth-child(4) { animation-delay: 0.4s; }
+    .form-group:nth-child(5) { animation-delay: 0.5s; }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-label {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #4a5568;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 16px;
+        color: #cbd5e0;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 12px 14px 12px 42px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f7fafc, #edf2f7);
+        font-size: 14px;
+        color: #2d3748;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .form-input:hover {
+        border-color: #cbd5e0;
+        background: linear-gradient(135deg, #edf2f7, #e2e8f0);
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-input::placeholder {
+        color: #a0aec0;
+    }
+
+    .pwd-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 12px;
+        color: #667eea;
+        transition: color 0.2s;
+        padding: 4px;
+        font-weight: bold;
+        text-decoration: underline;
+    }
+
+    .pwd-toggle:hover {
+        color: #764ba2;
+    }
+
+    .signup-btn {
+        padding: 14px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.4s ease;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .signup-btn:hover:not(:disabled) {
+        filter: brightness(1.1);
+        box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+        transform: translateY(-2px);
+    }
+
+    .signup-btn:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    .signup-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .divider {
+        text-align: center;
+        margin: 24px 0 20px;
+        font-size: 13px;
+        color: #a0aec0;
+        position: relative;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 45%;
+        height: 1px;
+        background: #e2e8f0;
+    }
+
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    .signup-footer {
+        text-align: center;
+        font-size: 14px;
+        color: #718096;
+    }
+
+    .signup-footer a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 700;
+        transition: color 0.3s;
+    }
+
+    .signup-footer a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+    }
+
+    .error-message {
+        display: none;
+        background: linear-gradient(135deg, #fed7d7, #feebc8);
+        border: 2px solid #fc8181;
+        color: #c53030;
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        font-weight: 600;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .error-message.show {
+        display: flex;
     }
 </style>
 
-<div class="signup-wrapper">
+<div id="content-wrapper">
+    <div class="signup-wrapper">
+        <div class="signup-card">
+            <!-- Header -->
+            <div class="signup-header">
+            <div class="signup-icon">GIS</div>
+            <h1 class="signup-title">Create Account</h1>
+            <p class="signup-subtitle">GIS TOOL - NEW USER REGISTRATION</p>
+        </div>
 
-    <div class="card signup-card bg-white">
-        <h3 class="text-center mb-3">📝 Signup</h3>
+        <!-- Error Message -->
+        <div class="error-message" id="errorMsg">
+            <span>!</span>
+            <span id="errorText"></span>
+        </div>
 
-        <input type="text" id="username" class="form-control mb-2" placeholder="Username (required)">
-        <input type="email" id="email" class="form-control mb-2" placeholder="Email (required)">
-        <input type="password" id="password" class="form-control mb-2" placeholder="Password (required)">
-        <input type="password" id="confirm_password" class="form-control mb-3" placeholder="Confirm Password (required)">
+        <!-- Form -->
+        <form method="POST" class="signup-form" id="signupForm">
+            {% csrf_token %}
 
-        <button onclick="signup()" class="btn btn-success w-100">Signup</button>
+            <!-- Username -->
+            <div class="form-group">
+                <label class="form-label">USERNAME</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">@</span>
+                    <input type="text" name="username" class="form-input" placeholder="Choose a username" required>
+                </div>
+            </div>
 
-        <p class="text-center mt-3">
-            Already have an account? <a href="/login/">Login</a>
-        </p>
+            <!-- Email -->
+            <div class="form-group">
+                <label class="form-label">EMAIL</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">M</span>
+                    <input type="email" name="email" class="form-input" placeholder="your@email.com" required>
+                </div>
+            </div>
 
-        <p id="msg" class="text-center mt-2 text-danger"></p>
+            <!-- Password -->
+            <div class="form-group">
+                <label class="form-label">PASSWORD</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">#</span>
+                    <input type="password" name="password" id="password" class="form-input" placeholder="Create a password" required>
+                    <button type="button" class="pwd-toggle" onclick="togglePassword('password')">SHOW</button>
+                </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+                <label class="form-label">CONFIRM PASSWORD</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">V</span>
+                    <input type="password" name="confirm_password" id="confirm_password" class="form-input" placeholder="Repeat your password" required>
+                    <button type="button" class="pwd-toggle" onclick="togglePassword('confirm_password')">SHOW</button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="signup-btn">
+                <span>CREATE ACCOUNT</span>
+            </button>
+        </form>
+
+        <div class="divider">or</div>
+
+        <!-- Footer -->
+        <div class="signup-footer">
+            Already have an account? <a href="/login/">Sign in</a>
+        </div>
     </div>
-
+    </div>
 </div>
 
 <script>
-function signup() {
-    fetch('/api/signup/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')   // 🔥 FIX
-        },
-        body: JSON.stringify({
-            username: document.getElementById('username').value,
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value,
-            passwod: document.getElementById('password').value,
-            confirm_password: document.getElementById('confirm_password').value,
-            "confirm-passowd": document.getElementById('confirm_password').value
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error || data.username) {
-            document.getElementById("msg").innerText = JSON.stringify(data);
-        } else {
-            alert("Signup successful!");
-            window.location.href = "/login/";
-        }
-    });
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    field.type = field.type === 'password' ? 'text' : 'password';
 }
 
-// 🔥 CSRF helper
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+document.getElementById('signupForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const username = this.username.value;
+    const email = this.email.value;
+    const password = this.password.value;
+    const confirm_password = this.confirm_password.value;
+    
+    if (password !== confirm_password) {
+        showError('Passwords do not match!');
+        return;
     }
-    return cookieValue;
+    
+    try {
+        const response = await fetch('/api/signup/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                password: password,
+                confirm_password: confirm_password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            window.location.href = '/login/?msg=Account created successfully!';
+        } else {
+            showError(data.errors?.username?.[0] || data.errors?.email?.[0] || 'Registration failed!');
+        }
+    } catch (error) {
+        showError('Network error. Please try again.');
+    }
+});
+
+function showError(message) {
+    const errorMsg = document.getElementById('errorMsg');
+    const errorText = document.getElementById('errorText');
+    errorText.textContent = message;
+    errorMsg.classList.add('show');
 }
 </script>
 

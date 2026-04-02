@@ -3,99 +3,414 @@
 {% block content %}
 
 <style>
-    .page-wrapper {
-        min-height: 85vh;
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .sj-page {
+        min-height: 90vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 2rem;
+        font-family: 'DM Sans', sans-serif;
+        background: #f0f4fa;
+        position: relative;
+        overflow: hidden;
     }
 
-    .card {
-        border-radius: 18px;
-        padding: 40px;
-        width: 500px;   /* 🔥 increased width */
-        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    /* Soft background pattern */
+    .sj-page::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+            radial-gradient(circle at 20% 20%, rgba(22,119,255,0.07) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(0,185,140,0.07) 0%, transparent 50%);
+        pointer-events: none;
     }
 
-    .upload-box {
-        border: 2px dashed #bbb;
-        border-radius: 12px;
-        padding: 35px;   /* 🔥 bigger box */
-        text-align: center;
-        transition: 0.3s;
-        cursor: pointer;
+    /* === CARD === */
+    .sj-card {
+        position: relative;
+        background: #ffffff;
+        border: 1px solid rgba(22,119,255,0.12);
+        border-radius: 22px;
+        padding: 44px 48px;
+        width: 100%;
+        max-width: 520px;
+        box-shadow:
+            0 2px 4px rgba(0,0,0,0.04),
+            0 8px 24px rgba(22,119,255,0.08),
+            0 32px 64px rgba(0,0,0,0.06);
     }
 
-    .upload-box:hover {
-        border-color: #0d6efd;
-        background: #f1f5ff;
+    /* Top accent line */
+    .sj-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 48px; right: 48px;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #1677ff 35%, #00b98c 65%, transparent);
+        border-radius: 0 0 3px 3px;
     }
 
-    .upload-box input {
-        margin-top: 10px;
+    /* === HEADER === */
+    .sj-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 30px;
     }
 
-    .file-name {
-        font-size: 14px;
-        color: green;
-        margin-top: 8px;
+    .sj-icon-wrap {
+        width: 50px; height: 50px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #e8f0ff, #e0f7f1);
+        border: 1px solid rgba(22,119,255,0.15);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
     }
 
-    .btn-run {
-        background: linear-gradient(45deg, #0d6efd, #2563eb);
-        color: white;
-        font-weight: bold;
-        padding: 12px;
-        border-radius: 10px;
-        transition: 0.3s;
-    }
-
-    .btn-run:hover {
-        background: #0b5ed7;
-        transform: scale(1.02);
-    }
-
-    .title {
+    .sj-title {
+        font-size: 20px;
         font-weight: 600;
-        margin-bottom: 25px;
+        color: #111827;
+        letter-spacing: -0.3px;
     }
+
+    .sj-subtitle {
+        font-size: 11px;
+        color: #9ca3af;
+        font-family: 'DM Mono', monospace;
+        letter-spacing: 0.8px;
+        margin-top: 3px;
+    }
+
+    /* === AUTO LOADED BADGE === */
+    .sj-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        background: #f0fdf8;
+        border: 1px solid rgba(0,185,140,0.3);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 26px;
+        width: 100%;
+    }
+
+    .sj-badge-dot {
+        width: 8px; height: 8px;
+        background: #00b98c;
+        border-radius: 50%;
+        flex-shrink: 0;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,185,140,0.4); }
+        50% { opacity: 0.7; transform: scale(0.85); box-shadow: 0 0 0 4px rgba(0,185,140,0); }
+    }
+
+    .sj-badge-text {
+        font-size: 13px;
+        color: #065f46;
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .sj-badge-label {
+        font-size: 10px;
+        color: #00b98c;
+        margin-left: auto;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 500;
+        background: rgba(0,185,140,0.1);
+        padding: 3px 8px;
+        border-radius: 20px;
+    }
+
+    /* === DIVIDER === */
+    .sj-divider {
+        border: none;
+        border-top: 1px solid #f1f5f9;
+        margin: 0 0 26px;
+    }
+
+    /* === FILE INPUT GROUP === */
+    .sj-field {
+        margin-bottom: 20px;
+    }
+
+    .sj-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        margin-bottom: 9px;
+        font-family: 'DM Mono', monospace;
+    }
+
+    .sj-label-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: #1677ff;
+        display: inline-block;
+    }
+
+    .sj-file-area {
+        position: relative;
+        background: #fafbff;
+        border: 1.5px dashed #d1daf0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+    }
+
+    .sj-file-area:hover {
+        border-color: #1677ff;
+        background: #f5f8ff;
+        box-shadow: 0 0 0 3px rgba(22,119,255,0.08);
+    }
+
+    .sj-file-area.has-file {
+        border-style: solid;
+        border-color: rgba(0,185,140,0.5);
+        background: #f0fdf8;
+        box-shadow: 0 0 0 3px rgba(0,185,140,0.07);
+    }
+
+    .sj-file-icon {
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        background: #eef2ff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 17px;
+        flex-shrink: 0;
+        transition: background 0.2s;
+        border: 1px solid rgba(22,119,255,0.1);
+    }
+
+    .sj-file-area.has-file .sj-file-icon {
+        background: #e6faf4;
+        border-color: rgba(0,185,140,0.2);
+    }
+
+    .sj-file-meta {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .sj-file-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: #9ca3af;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s;
+    }
+
+    .sj-file-area.has-file .sj-file-name {
+        color: #065f46;
+    }
+
+    .sj-file-hint {
+        font-size: 11px;
+        color: #c4c9d4;
+        margin-top: 2px;
+        font-family: 'DM Mono', monospace;
+    }
+
+    .sj-file-badge {
+        font-size: 10px;
+        background: #e6faf4;
+        color: #00b98c;
+        border: 1px solid rgba(0,185,140,0.25);
+        border-radius: 6px;
+        padding: 3px 9px;
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        flex-shrink: 0;
+    }
+
+    .sj-file-input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* === SUBMIT BUTTON === */
+    .sj-btn {
+        width: 100%;
+        margin-top: 12px;
+        padding: 15px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #1677ff 0%, #0a56cc 100%);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: 'DM Sans', sans-serif;
+        cursor: pointer;
+        letter-spacing: -0.2px;
+        transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+        box-shadow: 0 4px 14px rgba(22,119,255,0.35), 0 1px 3px rgba(22,119,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .sj-btn::after {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 55%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        transition: left 0.45s ease;
+    }
+
+    .sj-btn:hover::after { left: 160%; }
+    .sj-btn:hover {
+        filter: brightness(1.06);
+        box-shadow: 0 6px 20px rgba(22,119,255,0.45);
+        transform: translateY(-1px);
+    }
+    .sj-btn:active { transform: scale(0.98) translateY(0); }
+
+    .sj-btn-arrow {
+        font-size: 18px;
+        transition: transform 0.2s;
+    }
+    .sj-btn:hover .sj-btn-arrow { transform: translateX(4px); }
+
+    /* === FOOTER NOTE === */
+    .sj-footer {
+        margin-top: 18px;
+        text-align: center;
+        font-size: 11px;
+        color: #c4c9d4;
+        font-family: 'DM Mono', monospace;
+        letter-spacing: 0.3px;
+    }
+
+    input[type="hidden"] { display: none; }
 </style>
 
-<div class="container page-wrapper">
-    <div class="card bg-white">
+<div class="sj-page">
+    <div class="sj-card">
 
-        <h3 class="text-center title">
-            🗺️ Spatial Join Tool
-        </h3>
+        <!-- Header -->
+        <div class="sj-header">
+            <div class="sj-icon-wrap">🗺️</div>
+            <div>
+                <div class="sj-title">Spatial Join Tool</div>
+                <div class="sj-subtitle">VECTOR · SHAPEFILE · GIS</div>
+            </div>
+        </div>
 
-        <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
+        <form method="POST" enctype="multipart/form-data" id="sjForm">
+            {% csrf_token %}
 
-    {% if prefilled_file %}
-        <p class="text-success">✅ Auto Loaded: {{ file_name }}</p>
-        <input type="hidden" name="prefilled_file" value="{{ prefilled_file }}">
-    {% else %}
-        <label>Change Shapefile</label>
-        <input type="file" name="change_zip" class="form-control">
-    {% endif %}
+            {% if prefilled_file %}
+            <!-- Auto Loaded Badge -->
+            <div class="sj-badge">
+                <div class="sj-badge-dot"></div>
+                <span class="sj-badge-text">{{ file_name }}</span>
+                <span class="sj-badge-label">Auto loaded</span>
+            </div>
+            <input type="hidden" name="prefilled_file" value="{{ prefilled_file }}">
 
-    <label>Old Shapefile</label>
-    <input type="file" name="main_zip" class="form-control">
+            {% else %}
+            <!-- Change Shapefile Upload -->
+            <div class="sj-field">
+                <label class="sj-label">
+                    <span class="sj-label-dot"></span>
+                    Change Shapefile
+                </label>
+                <div class="sj-file-area" id="changeArea">
+                    <div class="sj-file-icon">📁</div>
+                    <div class="sj-file-meta">
+                        <div class="sj-file-name" id="changeName">Select .zip or .shp file</div>
+                        <div class="sj-file-hint">Click to browse</div>
+                    </div>
+                    <input type="file" name="change_zip" class="sj-file-input" id="changeFile" accept=".zip,.shp">
+                </div>
+            </div>
+            {% endif %}
 
-    <button type="submit">Run Spatial Join</button>
-</form>
+            <hr class="sj-divider">
 
+            <!-- Old Shapefile Upload -->
+            <div class="sj-field">
+                <label class="sj-label">
+                    <span class="sj-label-dot" style="background:#00b98c;"></span>
+                    Old Shapefile
+                </label>
+                <div class="sj-file-area" id="mainArea">
+                    <div class="sj-file-icon">🗂️</div>
+                    <div class="sj-file-meta">
+                        <div class="sj-file-name" id="mainName">Select .zip or .shp file</div>
+                        <div class="sj-file-hint">Click to browse</div>
+                    </div>
+                    <input type="file" name="main_zip" class="sj-file-input" id="mainFile" accept=".zip,.shp">
+                </div>
+            </div>
+
+            <button type="submit" class="sj-btn">
+                Run Spatial Join
+                <span class="sj-btn-arrow">→</span>
+            </button>
+        </form>
+
+        <div class="sj-footer">Accepts .shp · .zip · .geojson formats</div>
     </div>
 </div>
 
 <script>
-    document.getElementById("mainFile").onchange = function () {
-        document.getElementById("mainName").innerText = this.files[0].name;
-    };
+    function setupFile(inputId, nameId, areaId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        input.addEventListener('change', function () {
+            var area = document.getElementById(areaId);
+            var nameEl = document.getElementById(nameId);
+            if (this.files && this.files[0]) {
+                nameEl.textContent = this.files[0].name;
+                area.classList.add('has-file');
+                if (!area.querySelector('.sj-file-badge')) {
+                    var badge = document.createElement('span');
+                    badge.className = 'sj-file-badge';
+                    badge.textContent = '✓ Ready';
+                    area.appendChild(badge);
+                }
+            }
+        });
+    }
 
-    document.getElementById("changeFile").onchange = function () {
-        document.getElementById("changeName").innerText = this.files[0].name;
-    };
+    setupFile('mainFile', 'mainName', 'mainArea');
+    setupFile('changeFile', 'changeName', 'changeArea');
 </script>
 
 {% endblock %}

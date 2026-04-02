@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body>
+
+<h2>Buy Subscription</h2>
+<button onclick="payNow()">Pay ₹4000</button>
+
+<script>
+function payNow() {
+
+    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc1ODk4ODY3LCJpYXQiOjE3NzUwMzQ4NjcsImp0aSI6IjZkZWIzNDAyZjE3NjRkOWVhMTFjNjEwN2IyZDY0ZDkyIiwidXNlcl9pZCI6IjEifQ.gh3PNAZLFYzvzyQK-QdVjWZBSPuunggRBs177vWyLc0";   // replace with real token
+
+    fetch("http://127.0.0.1:8000/create-payment/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ plan_id: 1 })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        var options = {
+            "key": "rzp_test_SYApqStsJemcFe",  // ✅ FIXED
+            "amount": data.amount,
+            "currency": "INR",
+            "name": "My App",
+            "description": "Subscription Payment",
+            "order_id": data.order_id,
+
+            "handler": function (response) {
+
+                fetch("http://127.0.0.1:8000/verify-payment/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature,
+                        plan_id: data.plan_id
+                    })
+                })
+                .then(res => res.json())
+                .then(result => {
+                    alert("✅ Subscription Activated!");
+                });
+            },
+
+            "prefill": {
+                "name": "Test User",
+                "email": "test@example.com"
+            },
+
+            "theme": {
+                "color": "#3399cc"
+            }
+        };
+
+        var rzp = new Razorpay(options);
+        rzp.open();
+    });
+}
+</script>
+
+</body>
+</html>

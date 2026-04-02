@@ -1,8 +1,9 @@
-from rest_framework import serializers
+from rest_framework import serializers # type: ignore
 from django.contrib.auth.models import User
 from myapp.models import SpatialJoinResult
 import cv2
-
+from .decorators import subscription_required
+from .models import SubscriptionPlan, UserSubscription
 
 
 # ✅ SIGNUP SERIALIZER
@@ -66,3 +67,19 @@ class SpatialJoinResultSerializer(serializers.ModelSerializer):
     def get_excel_url(self, obj):
         request = self.context.get('request')
         return request.build_absolute_uri(obj.result_excel.url)
+    
+    
+    
+
+
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = '__all__'
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSubscription
+        fields = '__all__'

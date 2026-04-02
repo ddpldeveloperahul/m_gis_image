@@ -1,3 +1,4 @@
+
 {% extends 'base.html' %}
 {% block content %}
 
@@ -128,7 +129,7 @@
             <div class="zoom-controls mb-4">
                 <button class="btn btn-outline-dark" onclick="zoomIn()">🔍 Zoom In</button>
                 <button class="btn btn-outline-dark" onclick="zoomOut()">🔎 Zoom Out</button>
-                <button class="btn btn-outline-secondary" onclick="resetZoom()">♻️ Reset</button>
+                <button class="btn btn-outline-secondary" onclick="resetImage()">♻️ Reset</button>
                 
                 <span class="mx-2"></span> <button class="btn btn-outline-primary" onclick="showBack()">🟦 Back Image</button>
                 <button class="btn btn-outline-success" onclick="showFront()">🟩 Front Image</button>
@@ -189,6 +190,17 @@
     function resetZoom() {
         scale = 1;
         zoomImage.style.transform = "scale(1)";
+    }
+
+    function resetImage() {
+    // 🔥 compare mode band karo
+    compareBox.style.display = "none";
+
+    // 🔥 main image wapas dikhao
+    zoomImage.style.display = "block";
+
+    // 🔥 original result image set karo
+    zoomImage.src = "{{ result_png }}";
     }
 
     // --- BUTTON TOGGLES ---
@@ -257,4 +269,200 @@
 
 </script>
 
-{% endblock %}
+{% endblock %} 
+
+
+{% comment %} <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Change Detection Viewer</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #f4f6f9;
+}
+
+.container {
+    width: 90%;
+    margin: auto;
+    text-align: center;
+}
+
+#viewer {
+    position: relative;
+    height: 500px;
+    border: 1px solid #ccc;
+    overflow: hidden;
+    background: black;
+    cursor: grab;
+}
+
+.layer {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform-origin: center;
+}
+
+/* Layer order */
+#imgBack { z-index: 1; }
+#imgFront { z-index: 2; }
+#imgChange { z-index: 3; opacity: 0.6; }
+
+/* Slider */
+#slider {
+    position: absolute;
+    width: 100%;
+    height: 3px;
+    background: red;
+    top: 50%;
+    z-index: 10;
+    cursor: ns-resize;
+}
+
+.controls {
+    margin-top: 10px;
+}
+
+button {
+    padding: 8px 15px;
+    margin: 5px;
+    border: none;
+    background: #2c7be5;
+    color: white;
+    border-radius: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>Change Detection Viewer</h2>
+
+<div id="viewer">
+
+    <!-- USE PNG URLs FROM DJANGO -->
+    <img id="imgBack" class="layer" src="{{ img23 }}">
+    <img id="imgFront" class="layer" src="{{ img25 }}">
+    <img id="imgChange" class="layer" src="{{ result_png }}">
+
+    <div id="slider"></div>
+</div>
+
+<div class="controls">
+    <label><input type="checkbox" checked onclick="toggleLayer('imgBack')"> 2023</label>
+    <label><input type="checkbox" checked onclick="toggleLayer('imgFront')"> 2025</label>
+    <label><input type="checkbox" checked onclick="toggleLayer('imgChange')"> Change</label>
+</div>
+
+<div>
+    <button onclick="resetView()">Reset</button>
+    <button onclick="toggleOpacity()">Toggle Change Opacity</button>
+</div>
+
+</div>
+
+<script>
+
+// ================= STATE =================
+let scale = 1;
+let posX = 0;
+let posY = 0;
+
+let isPanning = false;
+let isSliding = false;
+
+const viewer = document.getElementById("viewer");
+const layers = document.querySelectorAll(".layer");
+const slider = document.getElementById("slider");
+const front = document.getElementById("imgFront");
+
+// ================= ZOOM =================
+viewer.addEventListener("wheel", (e) => {
+    e.preventDefault();
+
+    scale += e.deltaY * -0.001;
+    scale = Math.min(Math.max(0.5, scale), 5);
+
+    updateTransform();
+});
+
+// ================= PAN =================
+viewer.addEventListener("mousedown", (e) => {
+    if (e.target === slider) {
+        isSliding = true;
+    } else {
+        isPanning = true;
+        viewer.style.cursor = "grabbing";
+    }
+});
+
+window.addEventListener("mouseup", () => {
+    isPanning = false;
+    isSliding = false;
+    viewer.style.cursor = "grab";
+});
+
+window.addEventListener("mousemove", (e) => {
+
+    // PAN
+    if (isPanning) {
+        posX += e.movementX;
+        posY += e.movementY;
+        updateTransform();
+    }
+
+    // SLIDER
+    if (isSliding) {
+        let rect = viewer.getBoundingClientRect();
+        let y = e.clientY - rect.top;
+        let percent = (y / rect.height) * 100;
+
+        front.style.clipPath = `inset(0 0 ${100 - percent}% 0)`;
+        slider.style.top = y + "px";
+    }
+});
+
+// ================= TRANSFORM =================
+function updateTransform() {
+    layers.forEach(layer => {
+        layer.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+    });
+}
+
+// ================= TOGGLE =================
+function toggleLayer(id) {
+    let el = document.getElementById(id);
+    el.style.display = (el.style.display === "none") ? "block" : "none";
+}
+
+// ================= RESET =================
+function resetView() {
+    scale = 1;
+    posX = 0;
+    posY = 0;
+    updateTransform();
+
+    front.style.clipPath = "inset(0 0 50% 0)";
+    slider.style.top = "50%";
+}
+
+// ================= OPACITY =================
+let opacity = true;
+
+function toggleOpacity() {
+    let layer = document.getElementById("imgChange");
+
+    opacity = !opacity;
+    layer.style.opacity = opacity ? 0.6 : 1;
+}
+
+</script>
+
+</body>
+</html> {% endcomment %}

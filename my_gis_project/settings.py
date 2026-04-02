@@ -133,22 +133,18 @@ STATIC_URL = '/static/'
 
 
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework.authentication.SessionAuthentication',
-#     ),
-# }
-
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'yourapp.authentication.CsrfExemptSessionAuthentication',
-#     ),
-# }
+from datetime import timedelta
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'myapp.authentication.CsrfExemptSessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=10),
+}
 
-'django.template.context_processors.request'
+
+RAZORPAY_KEY_ID = "rzp_test_SYApqStsJemcFe"
+RAZORPAY_KEY_SECRET = "ZcNVeUvTQEFmfezvS18NW1Wu"
+
