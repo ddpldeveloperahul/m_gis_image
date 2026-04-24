@@ -1,6 +1,4 @@
-# =========================
 # Python
-# =========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,20 +8,12 @@ venv/
 env/
 ENV/
 
-# =========================
 # Django
-# =========================
 *.log
 db.sqlite3
 db.sqlite3-journal
 
-# Django migrations (optional)
-**/migrations/*.py
-!**/migrations/__init__.py
-
-# =========================
 # Media & Static
-# =========================
 media/
 staticfiles/
 
@@ -31,9 +21,7 @@ staticfiles/
 uploads/
 outputs/
 
-# =========================
 # GIS / Data files
-# =========================
 *.tif
 *.tiff
 *.shp
@@ -44,30 +32,21 @@ outputs/
 *.geojson
 *.zip
 
-# =========================
 # Environment Variables
-# =========================
 .env
 
-# =========================
-# VS Code
-# =========================
+# VS Code / IDE
 .vscode/
+.idea/
 
-# =========================
 # OS Files
-# =========================
 .DS_Store
 Thumbs.db
 
-# =========================
-# Jupyter / temp
-# =========================
+# Jupyter
 .ipynb_checkpoints/
 
-# =========================
 # Build / cache
-# =========================
 *.egg-info/
 dist/
 build/

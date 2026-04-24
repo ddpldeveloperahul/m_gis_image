@@ -108,7 +108,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 
 USE_I18N = True
 
@@ -131,7 +131,29 @@ MEDIA_URL = '/media/'
 
 STATIC_URL = '/static/'
 
+# ====================================================
+# 🔥 LARGE FILE UPLOAD SETTINGS
+# ====================================================
+# Allow up to 10 GB file uploads
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024 * 1024  # 10 GB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024 * 1024  # 10 GB
 
+# Chunked upload settings
+FILE_UPLOAD_CHUNK_SIZE = 2621440  # 2.5 MB chunks (better for 2-10 GB files)
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# Temporary file storage for large uploads
+FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, 'temp_uploads')
+os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)
+
+# Increase timeout for large file processing
+import socket
+socket.setdefaulttimeout(600)  # 10 minutes
+
+# WSGI/Server timeouts (for production - uWSGI/Gunicorn)
+# Uncomment when deploying:
+# TIMEOUT = 600  # 10 minutes
 
 from datetime import timedelta
 
@@ -148,3 +170,9 @@ SIMPLE_JWT = {
 RAZORPAY_KEY_ID = "rzp_test_SYApqStsJemcFe"
 RAZORPAY_KEY_SECRET = "ZcNVeUvTQEFmfezvS18NW1Wu"
 
+
+
+
+# Allow large uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024 * 1024  # 20GB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024 * 1024  # 20GB

@@ -1,8 +1,8 @@
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.conf import settings
+from matplotlib import image
 from requests import request
-from myapp.decorators import subscription_required
 from .forms import ChangeResultForm, SpatialJoinForm
 from .utils import process_change,process_spatial_join
 import os
@@ -17,13 +17,10 @@ from django.contrib.auth import authenticate, login, logout
 from rest_framework.response import Response # type: ignore
 from rest_framework import status # type: ignore
 from myapp.serializers import SignupSerializer, LoginSerializer, SpatialJoinResultSerializer
-from .decorators import subscription_required
-
 from rest_framework.decorators import api_view, permission_classes # type: ignore
 from rest_framework.permissions import IsAuthenticated # type: ignore
 from django.http import JsonResponse
 from .models import *
-from .payment import create_order
 from datetime import timedelta
 from rest_framework_simplejwt.tokens import RefreshToken # type: ignore
 import numpy as np
@@ -35,6 +32,8 @@ from rasterio.plot import reshape_as_image
 import cv2
 from PIL import Image
 import os
+import geopandas as gpd
+import pandas as pd
 
 def media_url_from_path(file_path):
     return settings.MEDIA_URL + os.path.relpath(file_path, settings.MEDIA_ROOT).replace("\\", "/")
@@ -75,31 +74,54 @@ def to_preview_rgb(data):
     rgb = np.stack([normalize_band_to_uint8(channel) for channel in channels], axis=-1)
     return rgb
 
+def save_tiff_preview_png(source_path, preview_path):
+    import rasterio
+    import numpy as np
+    from PIL import Image
+    from rasterio.enums import Resampling
 
-def save_tiff_preview_png(source_path, preview_path, reference_path=None):
+    MAX_PREVIEW_SIZE = 1024
+    
     with rasterio.open(source_path) as src:
-        if reference_path:
-            with rasterio.open(reference_path) as ref:
-                band_count = min(max(src.count, 1), 3)
-                aligned = np.zeros((band_count, ref.height, ref.width), dtype=np.float32)
+        print(f"📊 Image info: bands={src.count}, shape=({src.height}x{src.width}), dtype={src.dtypes[0]}")
+        
+        # Calculate scaling
+        scale = max(src.width / MAX_PREVIEW_SIZE, src.height / MAX_PREVIEW_SIZE, 1)
+        out_height = int(src.height / scale)
+        out_width = int(src.width / scale)
 
-                for band_index in range(band_count):
-                    reproject(
-                        source=rasterio.band(src, band_index + 1),
-                        destination=aligned[band_index],
-                        src_transform=src.transform,
-                        src_crs=src.crs,
-                        dst_transform=ref.transform,
-                        dst_crs=ref.crs,
-                        resampling=Resampling.bilinear,
-                    )
+        # Read first 3 bands or less
+        band_count = min(3, src.count)
+        data = src.read(list(range(1, band_count + 1)), out_shape=(band_count, out_height, out_width), resampling=Resampling.bilinear)
+        
+        print(f"📊 Read {band_count} bands, shape: {data.shape}")
 
-                preview_rgb = to_preview_rgb(aligned)
+        # Convert to uint8 with proper normalization for satellite imagery
+        if band_count == 1:
+            # Single band → grayscale → RGB
+            band = data[0].astype(np.float32)
+            p2, p98 = np.percentile(band[np.isfinite(band)], (2, 98))
+            normalized = np.clip((band - p2) / (p98 - p2 + 1e-6), 0, 1)
+            normalized = (normalized * 255).astype(np.uint8)
+            img = np.stack([normalized, normalized, normalized], axis=-1)
         else:
-            preview_rgb = to_preview_rgb(src.read())
-
-    Image.fromarray(preview_rgb).save(preview_path)
-
+            # Multi-band → RGB
+            img_data = data[:3].astype(np.float32)
+            
+            # Normalize each band independently for better color
+            normalized_bands = []
+            for i in range(img_data.shape[0]):
+                band = img_data[i]
+                p2, p98 = np.percentile(band[np.isfinite(band)], (2, 98))
+                normalized = np.clip((band - p2) / (p98 - p2 + 1e-6), 0, 1)
+                normalized_bands.append((normalized * 255).astype(np.uint8))
+            
+            # Stack as RGB (in correct order)
+            img = np.stack(normalized_bands, axis=-1)
+        
+        print(f"✅ Preview shape: {img.shape}, dtype: {img.dtype}")
+        Image.fromarray(img, mode='RGB').save(preview_path)
+        print(f"✅ Preview saved: {preview_path}")
 
 def build_result_context(result_png_path, result_tif_path, result_shp_path, img23_preview_path, img25_preview_path, img23_name, img25_name):
     return {
@@ -122,272 +144,43 @@ def home(request):
     return render(request, 'base.html')
 
 
-# @subscription_required
-# def upload_images(request):
-#     if request.method == 'POST':
-#         form = ChangeResultForm(request.POST, request.FILES)
-
-#         year1 = request.POST.get('year1')
-#         year2 = request.POST.get('year2')
-
-#         img23 = request.FILES.get('uploaded_2023')
-#         img25 = request.FILES.get('uploaded_2025')
-
-#         # ✅ Validation
-#         if not year1 or not year2:
-#             return HttpResponse("❌ Please select both years")
-
-#         if not img23 or not img25:
-#             return HttpResponse("❌ Please upload both images")
-
-#         if form.is_valid():
-
-#             # ✅ IMPORTANT: PATH DEFINE KARO
-#             upload_path = os.path.join(settings.MEDIA_ROOT, 'uploads')
-#             output_path = os.path.join(settings.MEDIA_ROOT, 'outputs')
-
-#             os.makedirs(upload_path, exist_ok=True)
-#             os.makedirs(output_path, exist_ok=True)
-
-#             img23_path = os.path.join(upload_path, img23.name)
-#             img25_path = os.path.join(upload_path, img25.name)
-
-#             # ✅ SAVE FILES
-#             with open(img23_path, 'wb+') as f:
-#                 for chunk in img23.chunks():
-#                     f.write(chunk)
-
-#             with open(img25_path, 'wb+') as f:
-#                 for chunk in img25.chunks():
-#                     f.write(chunk)
-
-#             # 🔥 TIF → PNG
-#             import rasterio
-#             from rasterio.plot import reshape_as_image
-#             import cv2
-#             import numpy as np
-
-#             # with rasterio.open(img23_path) as src:
-#             #     img = reshape_as_image(src.read())
-#             #     img23_png_path = img23_path.replace(".tif", ".png")
-#             #     cv2.imwrite(img23_png_path, img)
-
-#             # with rasterio.open(img25_path) as src:
-#             #     img = reshape_as_image(src.read())
-#             #     img25_png_path = img25_path.replace(".tif", ".png")
-#             #     cv2.imwrite(img25_png_path, img)
-
-#             # 2023
-#             with rasterio.open(img23_path) as src:
-#                 img = src.read()
-#                 img = reshape_as_image(img)
-
-#                 # img = img[:, :, :3]
-
-#             # 🔥 NORMALIZE
-#                 img = img.astype(np.float32)
-#                 img = (img - img.min()) / (img.max() - img.min()) * 255
-#                 img = img.astype(np.uint8)
-
-#                 img23_png_path = img23_path.replace(".tif", ".png")
-#                 cv2.imwrite(img23_png_path, img)
-
-
-#         # 2025
-#             with rasterio.open(img25_path) as src:
-#                 img = src.read()
-#                 img = reshape_as_image(img)
-
-#                 # img = img[:, :, :3]
-
-#             # 🔥 NORMALIZE
-#                 img = img.astype(np.float32)
-#                 img = (img - img.min()) / (img.max() - img.min()) * 255
-#                 img = img.astype(np.uint8)
-
-#                 img25_png_path = img25_path.replace(".tif", ".png")
-#                 cv2.imwrite(img25_png_path, img)
-
-
-
-
-
-#             # 🚀 PROCESS
-#             png, tif, zip_file = process_change(
-#                 img23_path,
-#                 img25_path,
-#                 output_path
-#             )
-
-#             # ✅ SAVE TO DB
-#             user = request.user if request.user.is_authenticated else User.objects.first()
-#             obj = ChangeResult.objects.create(user=user)
-
-#             obj.uploaded_2023.save(img23.name, File(open(img23_path, 'rb')))
-#             obj.uploaded_2025.save(img25.name, File(open(img25_path, 'rb')))
-
-#             obj.result_png.save(os.path.basename(png), File(open(png, 'rb')))
-#             obj.result_tif.save(os.path.basename(tif), File(open(tif, 'rb')))
-#             obj.result_shp.save(os.path.basename(zip_file), File(open(zip_file, 'rb')))
-
-#             obj.save()
-
-#             # ✅ CONTEXT
-#             context = {
-#                 'result_png': settings.MEDIA_URL + os.path.relpath(png, settings.MEDIA_ROOT).replace("\\", "/"),
-#                 'result_tif': settings.MEDIA_URL + os.path.relpath(tif, settings.MEDIA_ROOT).replace("\\", "/"),
-#                 'result_shp': settings.MEDIA_URL + os.path.relpath(zip_file, settings.MEDIA_ROOT).replace("\\", "/"),
-
-#                 'img23': settings.MEDIA_URL + os.path.relpath(img23_png_path, settings.MEDIA_ROOT).replace("\\", "/"),
-#                 'img25': settings.MEDIA_URL + os.path.relpath(img25_png_path, settings.MEDIA_ROOT).replace("\\", "/"),
-                
-#                 'img23_name': os.path.splitext(img23.name)[0],
-#                 'img25_name': os.path.splitext(img25.name)[0],
-#                 'result_shp_name': 'Change Detection Result',
-#             }
-
-#             return render(request, 'result.html', context)
-
-#     else:
-#         form = ChangeResultForm()
-
-#     years = list(range(2000, 2027))
-#     return render(request, 'upload.html', {'form': form, 'years': years})
-
-# # @subscription_required
-# def spatial_join_view(request):
-
-#     prefilled_file = request.GET.get('file')
-    
-#     file_name = os.path.basename(prefilled_file) if prefilled_file else None
-
-#     if request.method == 'POST':
-
-#         prefilled_file = request.POST.get('prefilled_file')
-
-#         main_zip = request.FILES.get('main_zip')
-#         change_zip = request.FILES.get('change_zip')
-
-#         base_dir = settings.MEDIA_ROOT
-#         main_dir = os.path.join(base_dir, 'main')
-#         change_dir = os.path.join(base_dir, 'change')
-#         output_dir = os.path.join(base_dir, 'spatial_output')
-
-#         # 🔥 CLEAN OLD DATA
-#         for d in [main_dir, change_dir]:
-#             if os.path.exists(d):
-#                 shutil.rmtree(d)
-#             os.makedirs(d)
-
-#         os.makedirs(output_dir, exist_ok=True)
-
-#         # =========================
-#         # 🔵 MAIN ZIP HANDLE
-#         # =========================
-#         if main_zip:
-#             main_zip_path = os.path.join(main_dir, main_zip.name)
-
-#             with open(main_zip_path, 'wb+') as f:
-#                 for chunk in main_zip.chunks():
-#                     f.write(chunk)
-
-#             zipfile.ZipFile(main_zip_path).extractall(main_dir)
-
-#         else:
-#             return HttpResponse("❌ Please upload OLD shapefile ZIP")
-
-#         # =========================
-#         # 🟢 CHANGE ZIP HANDLE (AUTO)
-#         # =========================
-#         if not change_zip and prefilled_file:
-#             change_zip_path = os.path.join(
-#                 settings.BASE_DIR,
-#                 prefilled_file.replace('/media/', 'media/')
-#             )
-
-#             if not os.path.exists(change_zip_path):
-#                 return HttpResponse("❌ Auto shapefile not found")
-
-#         elif change_zip:
-#             change_zip_path = os.path.join(change_dir, change_zip.name)
-
-#             with open(change_zip_path, 'wb+') as f:
-#                 for chunk in change_zip.chunks():
-#                     f.write(chunk)
-#         else:
-#             return HttpResponse("❌ Change shapefile missing")
-
-#         zipfile.ZipFile(change_zip_path).extractall(change_dir)
-
-#         # =========================
-#         # 🔍 FIND SHP FILE
-#         # =========================
-#         def find_shp(folder):
-#             for root, dirs, files in os.walk(folder):
-#                 for file in files:
-#                     if file.lower().endswith('.shp'):
-#                         return os.path.join(root, file)
-#             return None
-
-#         main_shp = find_shp(change_dir)
-#         change_shp = find_shp(main_dir)
-
-#         print("MAIN SHP:", main_shp)
-#         print("CHANGE SHP:", change_shp)
-
-#         # =========================
-#         # ❌ ERROR HANDLING
-#         # =========================
-#         if not main_shp:
-#             return HttpResponse("❌ .shp file not found in OLD ZIP")
-
-#         if not change_shp:
-#             return HttpResponse("❌ .shp file not found in CHANGE ZIP")
-
-#         # =========================
-#         # 🚀 PROCESS RUN
-#         # =========================
-#         try:
-#             result = process_spatial_join(main_shp, change_shp, output_dir)
-#         except Exception as e:
-#             return HttpResponse(f"❌ Processing Error: {str(e)}")
-
-#         # =========================
-#         # ✅ RESULT PAGE
-#         # =========================
-#         return render(request, 'result1.html', {
-#             'result': result
-#         })
-
-#     # =========================
-#     # 🔹 GET REQUEST
-#     # =========================
-#     return render(request, 'change.html', {
-#         'prefilled_file': prefilled_file,
-#         'file_name': file_name
-#     })
-
-
 def upload_images(request):
+
+    import os
+    from django.conf import settings
+    from django.core.files import File
+    from django.http import HttpResponse
+    from django.shortcuts import render
+    from django.contrib.auth.models import User
+
     if request.method == 'POST':
+
         form = ChangeResultForm(request.POST, request.FILES)
 
-        year1 = request.POST.get('year1')
-        year2 = request.POST.get('year2')
+        # year1 = request.POST.get('year1')
+        # year2 = request.POST.get('year2')
 
         img23 = request.FILES.get('uploaded_2023')
         img25 = request.FILES.get('uploaded_2025')
 
-        # ✅ Validation
-        if not year1 or not year2:
-            return HttpResponse("❌ Please select both years")
+        print("📥 RECEIVED:",img23, img25)
 
-        if not img23 or not img25:
-            return HttpResponse("❌ Please upload both images")
+        # =========================
+        # ✅ VALIDATION
+        # =========================
+        # if not year1 or not year2:
+        #     return HttpResponse("❌ Please select both years")
 
-        if form.is_valid():
+        # if not img23 or not img25:
+        #     return HttpResponse("❌ Please upload both images")
 
-            # ✅ IMPORTANT: PATH DEFINE KARO
+        # if not form.is_valid():
+        #     return HttpResponse("❌ Invalid form data")
+
+        try:
+            # =========================
+            # 📁 PATH SETUP
+            # =========================
             upload_path = os.path.join(settings.MEDIA_ROOT, 'uploads')
             output_path = os.path.join(settings.MEDIA_ROOT, 'outputs')
 
@@ -397,82 +190,130 @@ def upload_images(request):
             img23_path = os.path.join(upload_path, img23.name)
             img25_path = os.path.join(upload_path, img25.name)
 
-            # ✅ SAVE FILES
-            with open(img23_path, 'wb+') as f:
-                for chunk in img23.chunks():
-                    f.write(chunk)
+            # =========================
+            # 💾 SAVE FILES
+            # =========================
+            print("💾 Saving files...")
 
-            with open(img25_path, 'wb+') as f:
-                for chunk in img25.chunks():
-                    f.write(chunk)
+            # Use shutil.copyfileobj for efficient large file handling
+            with open(img23_path, 'wb') as f:
+                shutil.copyfileobj(img23.file, f, length=1024*1024)
 
-            
+            with open(img25_path, 'wb') as f:
+                shutil.copyfileobj(img25.file, f, length=1024*1024)
+
+            print("✅ Files saved")
+
+            # =========================
+            # 🖼️ PREVIEW
+            # =========================
+            print("🖼️ Generating preview...")
 
             img23_png_path = build_preview_path(img23_path)
             img25_png_path = build_preview_path(img25_path)
+
             save_tiff_preview_png(img23_path, img23_png_path)
-            save_tiff_preview_png(img25_path, img25_png_path, reference_path=img23_path)
+            save_tiff_preview_png(img25_path, img25_png_path)
 
+            print("✅ Preview created")
 
+            # =========================
+            # 🚀 PROCESS CHANGE
+            # =========================
+            print("🚀 Processing started (FAST MODE)...")
 
-
-
-            # 🚀 PROCESS
             png, tif, zip_file = process_change(
                 img23_path,
                 img25_path,
-                output_path
+                output_path,
+        
             )
 
-            # ✅ SAVE TO DB
+            print("✅ Processing completed")
+
+            # =========================
+            # 💾 SAVE TO DATABASE
+            # =========================
             user = request.user if request.user.is_authenticated else User.objects.first()
+
             obj = ChangeResult.objects.create(user=user)
 
-            obj.uploaded_2023.save(img23.name, File(open(img23_path, 'rb')))
-            obj.uploaded_2025.save(img25.name, File(open(img25_path, 'rb')))
+            print("💾 Saving results to DB...")
 
-            obj.result_png.save(os.path.basename(png), File(open(png, 'rb')))
-            obj.result_tif.save(os.path.basename(tif), File(open(tif, 'rb')))
-            obj.result_shp.save(os.path.basename(zip_file), File(open(zip_file, 'rb')))
+            # input images
+            with open(img23_path, 'rb') as f:
+                obj.uploaded_2023.save(img23.name, File(f), save=False)
+
+            with open(img25_path, 'rb') as f:
+                obj.uploaded_2025.save(img25.name, File(f), save=False)
+
+            # outputs
+            with open(png, 'rb') as f:
+                obj.result_png.save(os.path.basename(png), File(f), save=False)
+
+            with open(tif, 'rb') as f:
+                obj.result_tif.save(os.path.basename(tif), File(f), save=False)
+
+            # ✅ SAFE SHP SAVE - Only save if zip file exists
+            if zip_file is not None and os.path.exists(zip_file):
+                with open(zip_file, 'rb') as f:
+                    obj.result_shp.save(os.path.basename(zip_file), File(f), save=False)
+                print(f"✅ Shapefile saved: {os.path.basename(zip_file)}")
+            else:
+                print("⚠️ No shapefile created (no changes detected or empty result)")
 
             obj.save()
 
-            # ✅ CONTEXT
-            context = build_result_context(
-                png,
-                tif,
-                zip_file,
-                img23_png_path,
-                img25_png_path,
-                img23.name,
-                img25.name,
-            )
+            print("✅ Saved to DB")
+
+            # =========================
+            # 🎯 RESPONSE
+            # =========================
+            context = {
+                'result_png': media_url_from_path(png),
+                'result_tif': media_url_from_path(tif),
+                'result_shp': media_url_from_path(zip_file) if zip_file else None,
+                'img23': media_url_from_path(img23_png_path),
+                'img25': media_url_from_path(img25_png_path),
+                'img23_name': img23.name,
+                'img25_name': img25.name,
+            }
 
             return render(request, 'result.html', context)
 
-    else:
-        form = ChangeResultForm()
+        except Exception as e:
+            import traceback
+            error_msg = str(e) if str(e) else type(e).__name__
+            traceback.print_exc()
+            print("❌ ERROR:", error_msg)
+            return HttpResponse(f"❌ Error: {error_msg}")
 
+    # =========================
+    # GET REQUEST
+    # =========================
+    form = ChangeResultForm()
     years = list(range(2000, 2027))
-    return render(request, 'upload.html', {'form': form, 'years': years})
+
+    return render(request, 'upload.html', {
+        'form': form,
+        'years': years
+    })
 
 
 
 
 
 
-import os
+
+
 
 def spatial_join_view(request):
-
     prefilled_file = request.GET.get('file')
-    
     file_name = os.path.basename(prefilled_file) if prefilled_file else None
 
     if request.method == 'POST':
 
         prefilled_file = request.POST.get('prefilled_file')
-
         main_zip = request.FILES.get('main_zip')
         change_zip = request.FILES.get('change_zip')
 
@@ -481,7 +322,7 @@ def spatial_join_view(request):
         change_dir = os.path.join(base_dir, 'change')
         output_dir = os.path.join(base_dir, 'spatial_output')
 
-        # 🔥 CLEAN OLD DATA
+        # Clean old folders
         for d in [main_dir, change_dir]:
             if os.path.exists(d):
                 shutil.rmtree(d)
@@ -490,7 +331,7 @@ def spatial_join_view(request):
         os.makedirs(output_dir, exist_ok=True)
 
         # =========================
-        # 🔵 MAIN ZIP HANDLE
+        # MAIN ZIP
         # =========================
         if main_zip:
             main_zip_path = os.path.join(main_dir, main_zip.name)
@@ -500,12 +341,11 @@ def spatial_join_view(request):
                     f.write(chunk)
 
             zipfile.ZipFile(main_zip_path).extractall(main_dir)
-
         else:
-            return HttpResponse("❌ Please upload OLD shapefile ZIP")
+            return HttpResponse("Please upload main shapefile ZIP")
 
         # =========================
-        # 🟢 CHANGE ZIP HANDLE (AUTO)
+        # CHANGE ZIP
         # =========================
         if not change_zip and prefilled_file:
             change_zip_path = os.path.join(
@@ -514,7 +354,7 @@ def spatial_join_view(request):
             )
 
             if not os.path.exists(change_zip_path):
-                return HttpResponse("❌ Auto shapefile not found")
+                return HttpResponse("Auto shapefile not found")
 
         elif change_zip:
             change_zip_path = os.path.join(change_dir, change_zip.name)
@@ -522,13 +362,14 @@ def spatial_join_view(request):
             with open(change_zip_path, 'wb+') as f:
                 for chunk in change_zip.chunks():
                     f.write(chunk)
+
         else:
-            return HttpResponse("❌ Change shapefile missing")
+            return HttpResponse("Change shapefile missing")
 
         zipfile.ZipFile(change_zip_path).extractall(change_dir)
 
         # =========================
-        # 🔍 FIND SHP FILE
+        # FIND SHP FILE
         # =========================
         def find_shp(folder):
             for root, dirs, files in os.walk(folder):
@@ -537,48 +378,61 @@ def spatial_join_view(request):
                         return os.path.join(root, file)
             return None
 
-        main_shp = find_shp(change_dir)
-        change_shp = find_shp(main_dir)
+        main_shp = find_shp(main_dir)
+        change_shp = find_shp(change_dir)
 
-        print("MAIN SHP:", main_shp)
-        print("CHANGE SHP:", change_shp)
-
-        # =========================
-        # ❌ ERROR HANDLING
-        # =========================
         if not main_shp:
-            return HttpResponse("❌ .shp file not found in OLD ZIP")
+            return HttpResponse(".shp not found in main ZIP")
 
         if not change_shp:
-            return HttpResponse("❌ .shp file not found in CHANGE ZIP")
+            return HttpResponse(".shp not found in change ZIP")
 
         # =========================
-        # 🚀 PROCESS RUN
+        # PROCESS
         # =========================
         try:
             result = process_spatial_join(main_shp, change_shp, output_dir)
         except Exception as e:
-            return HttpResponse(f"❌ Processing Error: {str(e)}")
+            return HttpResponse(f"Processing Error: {str(e)}")
 
         # =========================
-        # ✅ RESULT PAGE
+        # SAVE TO DATABASE
         # =========================
+        user = request.user if request.user.is_authenticated else User.objects.first()
+
+        obj = SpatialJoinResult.objects.create(user=user)
+
+        # Save input files
+        obj.main_shapefile.save(main_zip.name, File(open(main_zip_path, 'rb')))
+
+        if change_zip:
+            obj.change_shapefile.save(change_zip.name, File(open(change_zip_path, 'rb')))
+        else:
+            obj.change_shapefile.name = prefilled_file.replace('/media/', '')
+
+        # Save outputs
+        obj.result_shapefile.save(
+            os.path.basename(result['shapefile']),
+            File(open(result['shapefile'], 'rb'))
+        )
+
+        obj.result_excel.save(
+            os.path.basename(result['excel']),
+            File(open(result['excel'], 'rb'))
+        )
+
+        obj.save()
+
         return render(request, 'result1.html', {
-            'result': result
+            'result': result,
+            'excel_url': obj.result_excel.url,
+            'shp_url': obj.result_shapefile.url
         })
 
-    # =========================
-    # 🔹 GET REQUEST
-    # =========================
     return render(request, 'change.html', {
         'prefilled_file': prefilled_file,
         'file_name': file_name
     })
-
-
-
-
-
 
 
 from django.http import FileResponse
@@ -608,12 +462,6 @@ def download_shapefile(request):
                 zipf.write(f, os.path.basename(f))
 
     return FileResponse(open(zip_path, 'rb'), as_attachment=True)
-
-
-
-
-
-
 
 
 
@@ -706,82 +554,21 @@ def signup_page(request):
     return render(request, 'signup.html')
 
 
-
-
-# 🔹 Get Plans
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_plans(request):
-    
     plans = SubscriptionPlan.objects.all()
     data = [{"id": p.id, "name": p.name, "price": p.price} for p in plans]
     return JsonResponse(data, safe=False)
 
 
-# 🔹 Create Payment Order
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_payment(request):
-    plan_id = request.data.get("plan_id")
-    plan = SubscriptionPlan.objects.get(id=plan_id)
 
-    order = create_order(plan.price)
-
-    return JsonResponse({
-        "order_id": order["id"],
-        "amount": order["amount"] / 100,
-        "plan_id": plan.id
-    })
+from rest_framework.permissions import IsAdminUser  # type: ignore
 
 
-# 🔹 Verify Payment & Activate Subscription
-import razorpay # type: ignore
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-
-def verify_payment(request):
-
-    user = request.user
-
-    razorpay_order_id = request.data.get('razorpay_order_id')
-    razorpay_payment_id = request.data.get('razorpay_payment_id')
-    razorpay_signature = request.data.get('razorpay_signature')
-    plan_id = request.data.get("plan_id")
-
-    client = razorpay.Client(
-        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-    )
-
-    try:
-        client.utility.verify_payment_signature({
-            'razorpay_order_id': razorpay_order_id,
-            'razorpay_payment_id': razorpay_payment_id,
-            'razorpay_signature': razorpay_signature
-        })
-    except Exception as e:
-        return JsonResponse({"error": "Payment verification failed"}, status=400)
-
-    plan = SubscriptionPlan.objects.get(id=plan_id)
-
-    UserSubscription.objects.update_or_create(
-        user=user,
-        defaults={
-            "plan": plan,
-            "start_date": timezone.now(),
-            "end_date": timezone.now() + timedelta(days=plan.duration_days),
-            "is_active": True
-        }
-    )
-
-    return JsonResponse({"status": "Subscription Activated"})
-def payment_page(request):
-    return render(request, 'payment.html')
-
-from rest_framework.permissions import IsAdminUser # type: ignore
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def admin_dashboard(request):
-
     total_users = User.objects.count()
 
     active_subs = UserSubscription.objects.filter(
@@ -798,14 +585,14 @@ def admin_dashboard(request):
         "active_subscriptions": active_subs,
         "expired_subscriptions": expired_subs
     })
-    
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def user_list(request):
-
     data = []
 
-    subs = UserSubscription.objects.select_related('user')
+    subs = UserSubscription.objects.select_related('user', 'plan')
 
     for sub in subs:
         data.append({
@@ -817,3 +604,5 @@ def user_list(request):
         })
 
     return Response(data)
+
+

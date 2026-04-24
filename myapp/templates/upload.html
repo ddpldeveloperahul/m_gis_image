@@ -455,17 +455,9 @@
                 <!-- Before Section -->
                 <div class="upload-section">
                     <div class="section-label">
-                        <span class="section-icon">📅</span>
-                        Before Images
-                        <span class="section-badge">YEAR 1</span>
+                        <span class="section-icon">�</span>
+                        Upload Old Image
                     </div>
-
-                    <select name="year1" id="year1" class="year-select" required>
-                        <option value="">Select Before Year</option>
-                        {% for year in years %}
-                            <option value="{{ year }}">{{ year }}</option>
-                        {% endfor %}
-                    </select>
 
                     <div class="upload-dropzone" id="dropzone1" ondrop="handleDrop(event, 'file1')" ondragover="handleDragOver(event, 'dropzone1')" ondragleave="handleDragLeave(event, 'dropzone1')">
                         <div class="upload-icon-box">📸</div>
@@ -479,17 +471,9 @@
                 <!-- After Section -->
                 <div class="upload-section">
                     <div class="section-label">
-                        <span class="section-icon">📅</span>
-                        After Images
-                        <span class="section-badge">YEAR 2</span>
+                        <span class="section-icon">�️</span>
+                        Upload New Image
                     </div>
-
-                    <select name="year2" id="year2" class="year-select" required>
-                        <option value="">Select After Year</option>
-                        {% for year in years %}
-                            <option value="{{ year }}">{{ year }}</option>
-                        {% endfor %}
-                    </select>
 
                     <div class="upload-dropzone" id="dropzone2" ondrop="handleDrop(event, 'file2')" ondragover="handleDragOver(event, 'dropzone2')" ondragleave="handleDragLeave(event, 'dropzone2')">
                         <div class="upload-icon-box">🗺️</div>
@@ -533,37 +517,17 @@
 </div>
 
 <script>
-// Year selection handlers
-const year1 = document.getElementById("year1");
-const year2 = document.getElementById("year2");
+// File input references
 const file1 = document.getElementById("file1");
 const file2 = document.getElementById("file2");
 const submitBtn = document.getElementById("submitBtn");
 
-// Disable file input until year is selected
-file1.disabled = true;
-file2.disabled = true;
-
-year1.addEventListener("change", function() {
-    file1.disabled = this.value === "";
-    if (!this.value) file1.value = "";
-    updateSubmitBtn();
-});
-
-year2.addEventListener("change", function() {
-    file2.disabled = this.value === "";
-    if (!this.value) file2.value = "";
-    updateSubmitBtn();
-});
-
 // Update submit button state
 function updateSubmitBtn() {
-    const hasYear1 = year1.value !== "";
     const hasFile1 = file1.value !== "";
-    const hasYear2 = year2.value !== "";
     const hasFile2 = file2.value !== "";
     
-    submitBtn.disabled = !(hasYear1 && hasFile1 && hasYear2 && hasFile2);
+    submitBtn.disabled = !(hasFile1 && hasFile2);
 }
 
 file1.addEventListener("change", updateSubmitBtn);

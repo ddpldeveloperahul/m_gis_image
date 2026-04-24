@@ -14,11 +14,3 @@ class SpatialJoinResultAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
 
 
-@admin.register(SubscriptionPlan)
-class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ('id','name', 'price', 'duration_days')
-
-
-
-# admin.site.register(SubscriptionPlan)
-admin.site.register(UserSubscription)

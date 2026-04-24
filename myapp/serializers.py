@@ -2,9 +2,6 @@ from rest_framework import serializers # type: ignore
 from django.contrib.auth.models import User
 from myapp.models import SpatialJoinResult
 import cv2
-from .decorators import subscription_required
-from .models import SubscriptionPlan, UserSubscription
-
 
 # ✅ SIGNUP SERIALIZER
 class SignupSerializer(serializers.ModelSerializer):
@@ -73,13 +70,3 @@ class SpatialJoinResultSerializer(serializers.ModelSerializer):
 
 
 
-class PlanSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubscriptionPlan
-        fields = '__all__'
-
-
-class SubscriptionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserSubscription
-        fields = '__all__'
