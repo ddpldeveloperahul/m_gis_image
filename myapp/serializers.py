@@ -1,5 +1,6 @@
 from rest_framework import serializers # type: ignore
 from django.contrib.auth.models import User
+from django.urls import reverse
 from myapp.models import SpatialJoinResult
 import cv2
 
@@ -56,17 +57,23 @@ class LoginSerializer(serializers.Serializer):
     
 class SpatialJoinResultSerializer(serializers.ModelSerializer):
     excel_url = serializers.SerializerMethodField()
+    excel_file = serializers.SerializerMethodField()
 
     class Meta:
         model = SpatialJoinResult
-        fields = ['id', 'excel_url', 'created_at']
+        fields = ['id', 'excel_url', 'excel_file', 'created_at']
 
     def get_excel_url(self, obj):
         request = self.context.get('request')
-        return request.build_absolute_uri(obj.result_excel.url)
-    
-    
-    
+        download_url = f"{reverse('download_excel')}?file={obj.result_excel.name}"
+        if request:
+            return request.build_absolute_uri(download_url)
+        return download_url
 
+    def get_excel_file(self, obj):
+        return obj.result_excel.name
+    
+    
+    
 
 

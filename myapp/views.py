@@ -1,6 +1,7 @@
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.conf import settings
+from django.urls import reverse
 from matplotlib import image
 from requests import request
 from .forms import ChangeResultForm, SpatialJoinForm
@@ -34,9 +35,43 @@ from PIL import Image
 import os
 import geopandas as gpd
 import pandas as pd
+from urllib.parse import urlencode
 
 def media_url_from_path(file_path):
     return settings.MEDIA_URL + os.path.relpath(file_path, settings.MEDIA_ROOT).replace("\\", "/")
+
+
+def resolve_media_file_path(file_ref):
+    if not file_ref:
+        return None
+
+    normalized_ref = str(file_ref).strip()
+
+    if normalized_ref.startswith(settings.MEDIA_URL):
+        normalized_ref = normalized_ref[len(settings.MEDIA_URL):]
+
+    normalized_ref = normalized_ref.lstrip("/\\")
+
+    if os.path.isabs(normalized_ref):
+        candidate = os.path.abspath(normalized_ref)
+    else:
+        candidate = os.path.abspath(os.path.join(settings.MEDIA_ROOT, normalized_ref))
+
+    media_root = os.path.abspath(settings.MEDIA_ROOT)
+
+    try:
+        common_path = os.path.commonpath([candidate, media_root])
+    except ValueError:
+        return None
+
+    if common_path != media_root:
+        return None
+
+    return candidate if os.path.exists(candidate) else None
+
+
+def build_download_url(route_name, file_name):
+    return f"{reverse(route_name)}?{urlencode({'file': file_name})}"
 
 
 def build_preview_path(source_path):
@@ -426,7 +461,9 @@ def spatial_join_view(request):
         return render(request, 'result1.html', {
             'result': result,
             'excel_url': obj.result_excel.url,
-            'shp_url': obj.result_shapefile.url
+            'shp_url': obj.result_shapefile.url,
+            'excel_download_url': build_download_url('download_excel', obj.result_excel.name),
+            'shp_download_url': build_download_url('download_shapefile', obj.result_shapefile.name),
         })
 
     return render(request, 'change.html', {
@@ -439,18 +476,22 @@ from django.http import FileResponse
 import zipfile
 
 def download_excel(request):
-    file_path = request.GET.get('file')
+    file_path = resolve_media_file_path(request.GET.get('file'))
 
-    if not os.path.exists(file_path):
-        return HttpResponse("File not found")
+    if not file_path:
+        return HttpResponse("File not found", status=404)
 
-    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+    return FileResponse(
+        open(file_path, 'rb'),
+        as_attachment=True,
+        filename=os.path.basename(file_path)
+    )
 
 def download_shapefile(request):
-    shp_path = request.GET.get('file')
+    shp_path = resolve_media_file_path(request.GET.get('file'))
 
-    if not os.path.exists(shp_path):
-        return HttpResponse("File not found")
+    if not shp_path:
+        return HttpResponse("File not found", status=404)
 
     base = os.path.splitext(shp_path)[0]
     zip_path = base + ".zip"
@@ -529,7 +570,11 @@ def logout_view(request):
 @csrf_exempt
 @api_view(['GET'])
 def list_excel_files(request):
-    results = SpatialJoinResult.objects.all().order_by('-created_at')
+    results = [
+        result
+        for result in SpatialJoinResult.objects.all().order_by('-created_at')
+        if result.result_excel and result.result_excel.storage.exists(result.result_excel.name)
+    ]
     serializer = SpatialJoinResultSerializer(results, many=True, context={'request': request})
     return Response(serializer.data)
 
@@ -604,5 +649,3 @@ def user_list(request):
         })
 
     return Response(data)
-
-

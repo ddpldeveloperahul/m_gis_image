@@ -3,14 +3,14 @@ from .models import *
 
 @admin.register(ChangeResult)
 class ChangeResultAdmin(admin.ModelAdmin):
-    list_display = ('user', 'uploaded_2023', 'uploaded_2025', 'result_png', 'result_tif', 'result_shp', 'created_at')
+    list_display = ("id", "user", "uploaded_2023", "uploaded_2025", "result_png", "result_tif", "result_shp", "created_at")
     readonly_fields = ('created_at',)
 
 
 
 @admin.register(SpatialJoinResult)
 class SpatialJoinResultAdmin(admin.ModelAdmin):
-    list_display = ('user', 'main_shapefile', 'change_shapefile', 'result_shapefile', 'result_excel', 'created_at')
+    list_display = ("id", "user", "main_shapefile", "change_shapefile", "result_shapefile", "result_excel", "created_at")
     readonly_fields = ('created_at',)
 
 

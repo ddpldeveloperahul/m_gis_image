@@ -85,11 +85,11 @@
             <!-- DOWNLOAD BUTTONS -->
             <div class="d-grid gap-3">
 
-                <a href="/download-excel/?file={{ result.excel }}" class="btn btn-success btn-custom">
+                <a href="{{ excel_download_url }}" class="btn btn-success btn-custom">
                     <i class="bi bi-file-earmark-excel"></i> Download Excel
                 </a>
 
-                <a href="/download-shapefile/?file={{ result.shapefile }}" class="btn btn-primary btn-custom">
+                <a href="{{ shp_download_url }}" class="btn btn-primary btn-custom">
                     <i class="bi bi-file-earmark-zip"></i> Download Shapefile (ZIP)
                 </a>
 
