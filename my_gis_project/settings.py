@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     'rest_framework',
+    'chunked_upload',
     "myapp",
 ]
 
@@ -85,25 +86,23 @@ MEDIA_URL = '/media/'
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ====================================================
-# 🔥 LARGE FILE UPLOAD SETTINGS (For 3GB-10GB files)
-# ====================================================
-# Files larger than 50MB stream to disk (NOT buffered in memory)
-FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB threshold
-DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB threshold
 
-# Chunked upload settings
-FILE_UPLOAD_CHUNK_SIZE = 2621440  # 2.5 MB chunks
-FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
-FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_MAX_MEMORY_SIZE = 0
+DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
-# Temporary file storage for large uploads
+FILE_UPLOAD_HANDLERS = [
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
+
+# temp folder
 FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, 'temp_uploads')
 os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)
 
-# Increase timeout for large file processing
-import socket
-socket.setdefaulttimeout(600)  # 10 minutes
+# media
+MEDIA_ROOT = "/home/rahul/data"
+MEDIA_URL = "/media/"
+CHUNKED_UPLOAD_MAX_BYTES = 20 * 1024 * 1024 * 1024  # 20GB
+CHUNKED_UPLOAD_EXPIRATION_DELTA = 3600  # 1 hour
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -117,9 +116,20 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=10),
 }
 
-# Razorpay
-RAZORPAY_KEY_ID = "rzp_test_SYApqStsJemcFe"
-RAZORPAY_KEY_SECRET = "ZcNVeUvTQEFmfezvS18NW1Wu"
+# Celery Configuration
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Kolkata'
+
+# For development without Redis: use eager execution (synchronous)
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_STORE_EAGER_RESULT = True
+
+
 # """
 # Django settings for my_gis_project project.
 

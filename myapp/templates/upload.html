@@ -1,581 +1,319 @@
-
 {% extends 'base.html' %}
-
 {% block content %}
 
+<script src="https://cdn.jsdelivr.net/npm/resumablejs/resumable.js"></script>
+
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap');
 
-    * {
-        font-family: 'Poppins', sans-serif;
-    }
+/* ===== MODERN GLASS UI ===== */
+.upload-container {
+    max-width: 1000px;
+    margin: 60px auto;
+    padding: 20px;
+}
 
-    body {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-    }
+.upload-card {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 25px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+}
 
-    .upload-container {
-        max-width: 1000px;
-        margin: 50px auto;
-        padding: 0 20px;
-    }
+/* ===== DROPZONE ===== */
+.dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 20px;
+    padding: 50px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
 
-    /* 🎯 HEADER SECTION */
-    .upload-header {
-        text-align: center;
-        margin-bottom: 60px;
-        animation: slideDown 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
+.dropzone:hover {
+    border-color: #1677ff;
+    transform: translateY(-3px);
+}
 
-    .upload-header-inner {
-        display: inline-block;
-    }
+.dropzone.dragover {
+    border-color: #00b98c;
+    background: rgba(0,185,140,0.1);
+    transform: scale(1.03);
+    box-shadow: 0 10px 40px rgba(0,185,140,0.3);
+}
 
-    .upload-icon {
-        font-size: 72px;
-        margin-bottom: 20px;
-        display: inline-block;
-        animation: bounce 2s infinite;
-        filter: drop-shadow(0 10px 20px rgba(22, 119, 255, 0.2));
-    }
+/* glow effect */
+.dropzone::after {
+    content: "";
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(22,119,255,0.2), transparent);
+    opacity: 0;
+    transition: 0.4s;
+}
 
-    @keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-15px); }
-    }
+.dropzone.dragover::after {
+    opacity: 1;
+}
 
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-40px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+/* ===== FILE NAME ===== */
+.file-name {
+    margin-top: 12px;
+    font-weight: 600;
+    color: #0c4a6e;
+}
 
-    .upload-title {
-        font-size: 42px;
-        font-weight: 700;
-        color: #1a202c;
-        margin-bottom: 10px;
-        letter-spacing: -1px;
-        background: linear-gradient(135deg, #1677ff, #0a56cc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+/* ===== BUTTON ===== */
+.upload-btn {
+    margin-top: 30px;
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg,#1677ff,#00b98c);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
 
-    .upload-subtitle {
-        font-size: 16px;
-        color: #64748b;
-        font-weight: 400;
-        letter-spacing: 0.5px;
-    }
+.upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(22,119,255,0.4);
+}
 
-    /* 🎨 MAIN CARD */
-    .upload-card {
-        background: #ffffff;
-        border-radius: 28px;
-        box-shadow: 
-            0 2px 8px rgba(0, 0, 0, 0.04),
-            0 8px 24px rgba(0, 0, 0, 0.08),
-            0 20px 60px rgba(22, 119, 255, 0.12);
-        padding: 50px;
-        animation: zoomIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
-        border: 1px solid rgba(22, 119, 255, 0.08);
-        position: relative;
-        overflow: hidden;
-    }
+/* ===== PROGRESS ===== */
+.progress-wrapper {
+    margin-top: 25px;
+    display: none;
+}
 
-    .upload-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, transparent, #1677ff, #00b98c, transparent);
-    }
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
 
-    @keyframes zoomIn {
-        from {
-            opacity: 0;
-            transform: scale(0.95);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(135deg,#1677ff,#00b98c);
+    transition: 0.3s;
+}
 
-    /* 📋 FORM GRID */
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 40px;
-        margin-bottom: 40px;
-    }
+.progress-text {
+    margin-top: 10px;
+    font-weight: 600;
+    text-align: center;
+}
 
-    @media (max-width: 768px) {
-        .form-grid {
-            grid-template-columns: 1fr;
-            gap: 30px;
-        }
-    }
+/* ===== GRID ===== */
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
 
-    /* 📅 SECTION */
-    .upload-section {
-        animation: fadeInUp 0.8s ease 0.4s both;
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .section-label {
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-        color: #475569;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .section-icon {
-        font-size: 18px;
-    }
-
-    .section-badge {
-        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-        color: #0c4a6e;
-        padding: 3px 10px;
-        border-radius: 8px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        border: 1px solid rgba(22, 119, 255, 0.2);
-    }
-
-    /* 🎯 YEAR SELECT */
-    .year-select {
-        width: 100%;
-        padding: 13px 16px;
-        border: 2px solid #e2e8f0;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #fafbff, #f5f8ff);
-        font-size: 14px;
-        font-weight: 500;
-        color: #1a202c;
-        outline: none;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        margin-bottom: 16px;
-        font-family: 'Poppins', sans-serif;
-    }
-
-    .year-select:hover {
-        border-color: #1677ff;
-        background: linear-gradient(135deg, #eff6ff, #e0f2fe);
-        box-shadow: 0 4px 12px rgba(22, 119, 255, 0.15);
-    }
-
-    .year-select:focus {
-        border-color: #1677ff;
-        background: #ffffff;
-        box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.15);
-    }
-
-    .year-select:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    /* 📤 UPLOAD BOX */
-    .upload-dropzone {
-        border: 2px dashed #cbd5e1;
-        border-radius: 18px;
-        padding: 40px 24px;
-        text-align: center;
-        background: linear-gradient(135deg, #fafbff 0%, #f5f8ff 100%);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .upload-dropzone::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(22, 119, 255, 0.1), transparent);
-        animation: pulse-bg 3s ease-in-out infinite;
-    }
-
-    @keyframes pulse-bg {
-        0%, 100% { transform: scale(1); opacity: 0; }
-        50% { transform: scale(1.1); opacity: 0.5; }
-    }
-
-    .upload-dropzone:hover {
-        border-color: #1677ff;
-        background: linear-gradient(135deg, #e8f0ff 0%, #e0f7f1 100%);
-        box-shadow: 0 8px 24px rgba(22, 119, 255, 0.2);
-        transform: translateY(-2px);
-    }
-
-    .upload-dropzone.dragover {
-        border-color: #1677ff;
-        background: linear-gradient(135deg, #dbeafe 0%, #d1ecf1 100%);
-        box-shadow: 0 12px 32px rgba(22, 119, 255, 0.3);
-        transform: scale(1.02);
-    }
-
-    .upload-icon-box {
-        font-size: 48px;
-        margin-bottom: 12px;
-        animation: float 3s ease-in-out infinite;
-        position: relative;
-        z-index: 1;
-    }
-
-    .upload-text {
-        font-size: 14px;
-        color: #334155;
-        margin: 0;
-        font-weight: 600;
-        position: relative;
-        z-index: 1;
-    }
-
-    .upload-hint {
-        font-size: 12px;
-        color: #94a3b8;
-        margin-top: 6px;
-        position: relative;
-        z-index: 1;
-    }
-
-    .file-input-hidden {
-        display: none;
-    }
-
-    .upload-file-name {
-        font-size: 12px;
-        color: #0c4a6e;
-        font-weight: 700;
-        margin-top: 12px;
-        padding: 8px 12px;
-        background: linear-gradient(135deg, rgba(22, 119, 255, 0.12), rgba(0, 185, 140, 0.08));
-        border-radius: 8px;
-        display: inline-block;
-        border: 1px solid rgba(22, 119, 255, 0.2);
-        animation: slideIn 0.3s ease;
-    }
-
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateX(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-
-    /* ⚡ ACTION BUTTON */
-    .upload-btn-wrapper {
-        display: flex;
-        gap: 12px;
-        margin-top: 40px;
-        animation: fadeInUp 0.8s ease 0.6s both;
-    }
-
-    .upload-btn {
-        flex: 1;
-        padding: 16px 28px;
-        border: none;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #1677ff 0%, #0a56cc 100%);
-        color: white;
-        font-size: 15px;
-        font-weight: 700;
-        font-family: 'Poppins', sans-serif;
-        cursor: pointer;
-        letter-spacing: -0.3px;
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        box-shadow: 0 6px 20px rgba(22, 119, 255, 0.35);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .upload-btn::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
-        transition: left 0.6s ease;
-    }
-
-    .upload-btn:hover:not(:disabled) {
-        filter: brightness(1.1);
-        box-shadow: 0 10px 30px rgba(22, 119, 255, 0.5);
-        transform: translateY(-3px);
-    }
-
-    .upload-btn:hover:not(:disabled)::before {
-        left: 100%;
-    }
-
-    .upload-btn:active:not(:disabled) {
-        transform: translateY(-1px);
-    }
-
-    .upload-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        box-shadow: 0 4px 12px rgba(22, 119, 255, 0.2);
-    }
-
-    .upload-btn-icon {
-        font-size: 20px;
-    }
-
-    /* 📊 INFO GRID */
-    .upload-info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 16px;
-        margin-top: 50px;
-        padding-top: 40px;
-        border-top: 2px solid #e2e8f0;
-        animation: fadeInUp 0.8s ease 0.8s both;
-    }
-
-    .info-card {
-        text-align: center;
-        padding: 24px;
-        background: linear-gradient(135deg, #f8fafc 0%, #f5f8ff 100%);
-        border-radius: 16px;
-        border: 1px solid #e2e8f0;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .info-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, transparent, rgba(22, 119, 255, 0.05));
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    }
-
-    .info-card:hover {
-        border-color: #1677ff;
-        box-shadow: 0 8px 20px rgba(22, 119, 255, 0.15);
-        transform: translateY(-4px);
-    }
-
-    .info-card:hover::before {
-        opacity: 1;
-    }
-
-    .info-icon {
-        font-size: 32px;
-        margin-bottom: 12px;
-        animation: bounce 2s infinite;
-        position: relative;
-        z-index: 1;
-    }
-
-    .info-text {
-        font-size: 13px;
-        color: #475569;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        position: relative;
-        z-index: 1;
-    }
-
-    /* 🔄 Loading State */
-    .upload-btn.loading {
-        animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { box-shadow: 0 6px 20px rgba(22, 119, 255, 0.35); }
-        50% { box-shadow: 0 6px 30px rgba(22, 119, 255, 0.55); }
-    }
 </style>
 
 <div class="upload-container">
-    <!-- Header -->
-    <div class="upload-header">
-        <div class="upload-header-inner">
-            <div class="upload-icon">🛰️</div>
-            <h1 class="upload-title">Change Detection</h1>
-            <p class="upload-subtitle">Analyze temporal changes in satellite imagery with precision</p>
-        </div>
+
+<div class="upload-card">
+{% csrf_token %}
+
+<div class="grid">
+
+<!-- FILE 1 -->
+<div class="dropzone" id="zone1">
+    <h3>📸 Old Image</h3>
+    <p>Drag & Drop or Click</p>
+    <input type="file" id="file1" hidden>
+    <div id="name1" class="file-name"></div>
+</div>
+
+<!-- FILE 2 -->
+<div class="dropzone" id="zone2">
+    <h3>🗺️ New Image</h3>
+    <p>Drag & Drop or Click</p>
+    <input type="file" id="file2" hidden>
+    <div id="name2" class="file-name"></div>
+</div>
+
+</div>
+
+<button class="upload-btn" onclick="startUpload()" id="btn">
+🚀 Start Upload
+</button>
+
+<div class="progress-wrapper" id="progressWrap">
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
     </div>
+    <div class="progress-text" id="progressText"></div>
+</div>
 
-    <!-- Main Card -->
-    <div class="upload-card">
-        <form method="post" enctype="multipart/form-data" id="uploadForm">
-            {% csrf_token %}
-
-            <div class="form-grid">
-                <!-- Before Section -->
-                <div class="upload-section">
-                    <div class="section-label">
-                        <span class="section-icon">�</span>
-                        Upload Old Image
-                    </div>
-
-                    <div class="upload-dropzone" id="dropzone1" ondrop="handleDrop(event, 'file1')" ondragover="handleDragOver(event, 'dropzone1')" ondragleave="handleDragLeave(event, 'dropzone1')">
-                        <div class="upload-icon-box">📸</div>
-                        <p class="upload-text">Click or drag file here</p>
-                        <p class="upload-hint">TIF, PNG, JPG supported</p>
-                        <input type="file" id="file1" name="uploaded_2023" class="file-input-hidden" accept=".tif,.tiff,.png,.jpg,.jpeg" onchange="showFileName(this, 'file1-name')">
-                        <div id="file1-name"></div>
-                    </div>
-                </div>
-
-                <!-- After Section -->
-                <div class="upload-section">
-                    <div class="section-label">
-                        <span class="section-icon">�️</span>
-                        Upload New Image
-                    </div>
-
-                    <div class="upload-dropzone" id="dropzone2" ondrop="handleDrop(event, 'file2')" ondragover="handleDragOver(event, 'dropzone2')" ondragleave="handleDragLeave(event, 'dropzone2')">
-                        <div class="upload-icon-box">🗺️</div>
-                        <p class="upload-text">Click or drag file here</p>
-                        <p class="upload-hint">TIF, PNG, JPG supported</p>
-                        <input type="file" id="file2" name="uploaded_2025" class="file-input-hidden" accept=".tif,.tiff,.png,.jpg,.jpeg" onchange="showFileName(this, 'file2-name')">
-                        <div id="file2-name"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Submit Button -->
-            <div class="upload-btn-wrapper">
-                <button type="submit" class="upload-btn" id="submitBtn">
-                    <span class="upload-btn-icon">🚀</span>
-                    <span>Run Change Detection</span>
-                </button>
-            </div>
-        </form>
-
-        <!-- Info Grid -->
-        <div class="upload-info-grid">
-            <div class="info-card">
-                <div class="info-icon">⚡</div>
-                <div class="info-text">Fast Processing</div>
-            </div>
-            <div class="info-card">
-                <div class="info-icon">🎯</div>
-                <div class="info-text">Accurate Results</div>
-            </div>
-            <div class="info-card">
-                <div class="info-icon">📊</div>
-                <div class="info-text">Detailed Reports</div>
-            </div>
-            <div class="info-card">
-                <div class="info-icon">🔒</div>
-                <div class="info-text">Secure Data</div>
-            </div>
-        </div>
-    </div>
+</div>
 </div>
 
 <script>
-// File input references
-const file1 = document.getElementById("file1");
-const file2 = document.getElementById("file2");
-const submitBtn = document.getElementById("submitBtn");
 
-// Update submit button state
-function updateSubmitBtn() {
-    const hasFile1 = file1.value !== "";
-    const hasFile2 = file2.value !== "";
-    
-    submitBtn.disabled = !(hasFile1 && hasFile2);
+// ===== DRAG DROP =====
+function setupDrop(zoneId, fileId, nameId) {
+
+    let zone = document.getElementById(zoneId);
+    let input = document.getElementById(fileId);
+
+    zone.onclick = () => input.click();
+
+    zone.ondragover = (e) => {
+        e.preventDefault();
+        zone.classList.add("dragover");
+    };
+
+    zone.ondragleave = () => zone.classList.remove("dragover");
+
+    zone.ondrop = (e) => {
+        e.preventDefault();
+        zone.classList.remove("dragover");
+
+        input.files = e.dataTransfer.files;
+        showName(input, nameId);
+    };
+
+    input.onchange = () => showName(input, nameId);
 }
 
-file1.addEventListener("change", updateSubmitBtn);
-file2.addEventListener("change", updateSubmitBtn);
-
-updateSubmitBtn();
-
-// Dropzone functionality
-function handleDragOver(e, zoneId) {
-    e.preventDefault();
-    document.getElementById(zoneId).classList.add('dragover');
+function showName(input, id) {
+    document.getElementById(id).innerHTML = input.files[0].name;
 }
 
-function handleDragLeave(e, zoneId) {
-    document.getElementById(zoneId).classList.remove('dragover');
-}
+setupDrop("zone1","file1","name1");
+setupDrop("zone2","file2","name2");
 
-function handleDrop(e, fileId) {
-    e.preventDefault();
-    const zone = e.currentTarget;
-    zone.classList.remove('dragover');
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        document.getElementById(fileId).files = files;
-        document.getElementById(fileId).dispatchEvent(new Event('change'));
+
+// ===== UPLOAD =====
+// ===== UPLOAD =====
+async function startUpload() {
+
+    let f1 = document.getElementById("file1").files[0];
+    let f2 = document.getElementById("file2").files[0];
+
+    if(!f1 || !f2){
+        alert("Select both files");
+        return;
+    }
+
+    document.getElementById("progressWrap").style.display="block";
+    document.getElementById("progressText").innerHTML = "Uploading...";
+
+    try {
+        // Upload both files
+        const file1_path = await simpleUpload(f1);
+        document.getElementById("progressFill").style.width = "50%";
+        
+        const file2_path = await simpleUpload(f2);
+        document.getElementById("progressFill").style.width = "100%";
+        
+        console.log("Both files uploaded:", file1_path, file2_path);
+        
+        // Now process
+        document.getElementById("progressText").innerHTML = "Processing...";
+        
+        const response = await fetch('/start-processing/', {
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'X-CSRFToken': getCSRF()
+            },
+            body:JSON.stringify({
+                file1: file1_path,
+                file2: file2_path
+            })
+        });
+        
+        const result = await response.json();
+        console.log("Start processing response:", result);
+        
+        if (!response.ok) {
+            throw new Error(result.error || 'Processing failed');
+        }
+        
+        if (result.status === "SUCCESS" && result.result && result.result.id) {
+            window.location.href = "/result/?id=" + result.result.id;
+            return;
+        }
+
+        checkStatus(result.task_id);
+        
+    } catch (error) {
+        console.error("Upload/processing error:", error);
+        alert("Error: " + error.message);
+        document.getElementById("progressWrap").style.display = "none";
     }
 }
 
-// Click on dropzone to select file
-document.getElementById("dropzone1").addEventListener("click", () => file1.click());
-document.getElementById("dropzone2").addEventListener("click", () => file2.click());
 
-// Show file name
-function showFileName(input, nameId) {
-    const nameDiv = document.getElementById(nameId);
-    if (input.files.length > 0) {
-        nameDiv.innerHTML = `<span class="upload-file-name">✓ ${input.files[0].name}</span>`;
-    } else {
-        nameDiv.innerHTML = '';
+// ===== SIMPLE UPLOAD (FALLBACK) =====
+async function simpleUpload(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/upload-chunk/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRF()
+            }
+        });
+        
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Upload failed');
+        }
+        return data.file_path;
+    } catch (error) {
+        console.error('Simple upload failed:', error);
+        throw error;
     }
-    updateSubmitBtn();
 }
 
-// Form submission loading state
-document.getElementById("uploadForm").addEventListener("submit", function() {
-    submitBtn.classList.add('loading');
-});
+
+// ===== STATUS =====
+function checkStatus(id){
+
+    let i=setInterval(()=>{
+
+        fetch('/task-status/'+id+'/')
+        .then(r=>r.json())
+        .then(d=>{
+            if(d.status==="SUCCESS"){
+                clearInterval(i);
+                window.location.href="/result/?id="+d.result.id;
+            }
+        });
+
+    },4000);
+}
+
+
+// ===== CSRF =====
+function getCSRF(){
+    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (tokenInput) {
+        return tokenInput.value;
+    }
+
+    const cookieMatch = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : "";
+}
+
 </script>
 
 {% endblock %}

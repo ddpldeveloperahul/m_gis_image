@@ -357,12 +357,12 @@
 <div class="page-wrapper">
     <div id="layerPanel" class="layer-panel">
         <h6>Layers</h6>
-        <label><input type="checkbox" id="chkBack"> {{ img23_name }}</label>
+        <label><input type="checkbox" id="chkBack" checked> Phase 1 - {{ img23_name }}</label>
         <span class="layer-file-type"></span>
-        <label><input type="checkbox" id="chkFront"> {{ img25_name }}</label>
+        <label><input type="checkbox" id="chkFront" checked> Phase 2 - {{ img25_name }}</label>
         <span class="layer-file-type"></span>
-        <label><input type="checkbox" id="chkBlue" checked> {{ result_shp_name }}</label>
-        <span class="layer-file-type">layer preview</span>
+        <label><input type="checkbox" id="chkBlue" checked> Complete Detection</label>
+        <span class="layer-file-type">{{ result_shp_name }}</span>
         {% comment %} <button type="button" class="btn btn-sm btn-success mt-2" onclick="applyLayers()">Apply Selection</button> {% endcomment %}
         {% comment %} <small>Checkbox change hote hi preview update ho jayega.</small> {% endcomment %}
     </div>
@@ -598,28 +598,7 @@
             return;
         }
 
-        const canvas = document.createElement("canvas");
-        canvas.width = overlaySourceImage.naturalWidth;
-        canvas.height = overlaySourceImage.naturalHeight;
-
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        context.drawImage(overlaySourceImage, 0, 0);
-
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const pixels = imageData.data;
-
-        for (let index = 0; index < pixels.length; index += 4) {
-            if (pixels[index + 3] === 0) {
-                continue;
-            }
-
-            pixels[index] = overlayColor.r;
-            pixels[index + 1] = overlayColor.g;
-            pixels[index + 2] = overlayColor.b;
-        }
-
-        context.putImageData(imageData, 0, 0);
-        overlayPreviewSrc = canvas.toDataURL("image/png");
+        overlayPreviewSrc = resultImg;
         updateOverlayColorLabels();
         updateOverlaySources();
         applyBlueIntensity();
@@ -758,8 +737,8 @@
     }
 
     function resetImage() {
-        chkBack.checked = false;
-        chkFront.checked = false;
+        chkBack.checked = true;
+        chkFront.checked = true;
         chkBlue.checked = true;
         blueOpacity = 0.45;
         blueIntensitySlider.value = "45";

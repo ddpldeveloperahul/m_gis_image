@@ -16,6 +16,7 @@ class ChangeResult(models.Model):
     result_png = models.FileField(upload_to='images_upload/')
     result_tif = models.FileField(upload_to='images_upload/')
     result_shp = models.FileField(upload_to='images_upload/')
+    status = models.CharField(max_length=20, default='pending')
 
     created_at = models.DateTimeField(auto_now_add=True)
 

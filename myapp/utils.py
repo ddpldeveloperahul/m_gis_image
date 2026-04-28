@@ -787,17 +787,22 @@ def process_spatial_join(main_path, change_path, output_dir):
     final = gpd.GeoDataFrame(final, geometry='geometry', crs=main.crs)
 
     # =========================
-    # YES / NO
+    # ARCGIS-FRIENDLY FIELDS
+    # Shapefile/DBF is limited: keep names <= 10 chars and avoid bool fields.
     # =========================
-    final['changed'] = final['changed_flag'].map({
+    final['CHANGED'] = final['changed_flag'].map({
         True: 'YES',
         False: 'NO'
     }).astype(str)
+    final['CHG_FLAG'] = final['changed_flag'].astype(int)
+    final['CHG_PCT'] = final['change_percent'].fillna(0).astype(float)
+
+    final_export = final[[main_id_col, 'CHANGED', 'CHG_FLAG', 'CHG_PCT', 'geometry']].copy()
 
     # =========================
     # SAVE SHAPEFILE
     # =========================
-    final.to_file(shp_output)
+    final_export.to_file(shp_output, driver='ESRI Shapefile', encoding='UTF-8')
 
     # =========================
     # SAVE EXCEL
@@ -807,6 +812,7 @@ def process_spatial_join(main_path, change_path, output_dir):
     excel_df['geometry'] = excel_df['geometry'].apply(
         lambda g: g.wkt if g else None
     )
+    excel_df['changed'] = final['CHANGED']
 
     with pd.ExcelWriter(excel_output) as writer:
         excel_df.to_excel(writer, sheet_name='All Data', index=False)

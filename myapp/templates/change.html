@@ -334,33 +334,29 @@
         <form method="POST" enctype="multipart/form-data" id="sjForm">
             {% csrf_token %}
 
-            {% if prefilled_file %}
-            <!-- Auto Loaded Badge -->
-            <div class="sj-badge">
-                <div class="sj-badge-dot"></div>
-                <span class="sj-badge-text">{{ file_name }}</span>
-                <span class="sj-badge-label">Auto loaded</span>
-            </div>
-            <input type="hidden" name="prefilled_file" value="{{ prefilled_file }}">
-
-            {% else %}
             <!-- Change Shapefile Upload -->
             <div class="sj-field">
                 <label class="sj-label">
                     <span class="sj-label-dot"></span>
                     Change Shapefile
                 </label>
-                <div class="sj-file-area" id="changeArea">
+                <div class="sj-file-area {% if prefilled_file %}has-file{% endif %}" id="changeArea">
                     <div class="sj-file-icon">📁</div>
                     <div class="sj-file-meta">
-                        <div class="sj-file-name" id="changeName">Select .zip or .shp file</div>
-                        <div class="sj-file-hint">Click to browse</div>
+                        <div class="sj-file-name" id="changeName">{% if prefilled_file %}{{ file_name }}{% else %}Select .zip or .shp file{% endif %}</div>
+                        <div class="sj-file-hint">{% if prefilled_file %}Auto loaded from change detection{% else %}Click to browse{% endif %}</div>
                     </div>
+                    {% if prefilled_file %}
+                    <span class="sj-file-badge">Auto</span>
+                    <input type="hidden" name="prefilled_file" value="{{ prefilled_file }}">
+                    {% else %}
                     <input type="file" name="change_zip" class="sj-file-input" id="changeFile" accept=".zip,.shp">
+                    {% endif %}
                 </div>
+                {% if prefilled_error %}
+                <div class="sj-file-hint" style="color:#dc2626; margin-top:8px;">{{ prefilled_error }}</div>
+                {% endif %}
             </div>
-            {% endif %}
-
             <hr class="sj-divider">
 
             <!-- Old Shapefile Upload -->
