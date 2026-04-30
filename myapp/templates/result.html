@@ -1,3 +1,6 @@
+
+
+
 {% extends 'base.html' %}
 {% block content %}
 
@@ -222,16 +225,14 @@
         border-radius: 999px;
         border: 1px solid #cbd5e1;
         cursor: ns-resize;
-        background: linear-gradient(
-            to bottom,
-            rgb(255, 0, 0) 0%,
-            rgb(255, 255, 0) 17%,
-            rgb(0, 255, 0) 33%,
-            rgb(0, 255, 255) 50%,
-            rgb(0, 0, 255) 67%,
-            rgb(255, 0, 255) 83%,
-            rgb(255, 0, 0) 100%
-        );
+        background: linear-gradient(to bottom,
+                rgb(255, 0, 0) 0%,
+                rgb(255, 255, 0) 17%,
+                rgb(0, 255, 0) 33%,
+                rgb(0, 255, 255) 50%,
+                rgb(0, 0, 255) 67%,
+                rgb(255, 0, 255) 83%,
+                rgb(255, 0, 0) 100%);
     }
 
     .hue-handle {
@@ -363,7 +364,8 @@
         <span class="layer-file-type"></span>
         <label><input type="checkbox" id="chkBlue" checked> Complete Detection</label>
         <span class="layer-file-type">{{ result_shp_name }}</span>
-        {% comment %} <button type="button" class="btn btn-sm btn-success mt-2" onclick="applyLayers()">Apply Selection</button> {% endcomment %}
+        {% comment %} <button type="button" class="btn btn-sm btn-success mt-2" onclick="applyLayers()">Apply
+            Selection</button> {% endcomment %}
         {% comment %} <small>Checkbox change hote hi preview update ho jayega.</small> {% endcomment %}
     </div>
 
@@ -393,15 +395,19 @@
                 <div id="layerBox" class="image-mode" style="display:none;">
                     <img id="backLayer" src="{{ img23 }}" class="result-img" style="display:none;" draggable="false">
                     <img id="frontLayer" src="{{ img25 }}" class="result-img" style="display:none;" draggable="false">
-                    <img id="blueLayer" src="{{ result_png }}" class="result-img" style="display:none; opacity:0.45;" draggable="false">
+                    <img id="blueLayer" src="{{ result_png }}" class="result-img" style="display:none; opacity:0.45;"
+                        draggable="false">
                 </div>
 
                 <div id="compareBox" class="image-mode" style="display:none;">
                     <img id="baseImgCompare" src="{{ img23 }}" class="result-img" draggable="false">
                     <div id="compareReveal" class="compare-reveal">
-                        <img id="compareRevealBack" src="{{ img23 }}" class="result-img" style="display:none;" draggable="false">
-                        <img id="compareRevealFront" src="{{ img25 }}" class="result-img" style="display:none;" draggable="false">
-                        <img id="compareRevealBlue" src="{{ result_png }}" class="result-img" style="display:none; opacity:0.35; pointer-events:none;" draggable="false">
+                        <img id="compareRevealBack" src="{{ img23 }}" class="result-img" style="display:none;"
+                            draggable="false">
+                        <img id="compareRevealFront" src="{{ img25 }}" class="result-img" style="display:none;"
+                            draggable="false">
+                        <img id="compareRevealBlue" src="{{ result_png }}" class="result-img"
+                            style="display:none; opacity:0.35; pointer-events:none;" draggable="false">
                     </div>
                     <div id="sliderLine"></div>
                 </div>
@@ -498,8 +504,8 @@
 
     let blueOpacity = 0.45;
     let overlayPreviewSrc = resultImg;
-    let overlayColor = { r: 0, g: 0, b: 255 };
-    let overlayHsv = { h: 240, s: 100, v: 100 };
+    let overlayColor = { r: 255, g: 0, b: 0 };
+    let overlayHsv = { h: 0, s: 100, v: 100 };
     let activePickerTarget = null;
 
     const overlaySourceImage = new Image();
@@ -598,7 +604,44 @@
             return;
         }
 
-        overlayPreviewSrc = resultImg;
+        const canvas = document.createElement("canvas");
+        canvas.width = overlaySourceImage.naturalWidth;
+        canvas.height = overlaySourceImage.naturalHeight;
+
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(overlaySourceImage, 0, 0);
+
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+
+        for (let index = 0; index < pixels.length; index += 4) {
+            const red = pixels[index];
+            const green = pixels[index + 1];
+            const blue = pixels[index + 2];
+            const alpha = pixels[index + 3];
+
+            if (alpha === 0) {
+                continue;
+            }
+
+            const maxChannel = Math.max(red, green, blue);
+            const minChannel = Math.min(red, green, blue);
+            const isWhiteBackground = maxChannel >= 245 && (maxChannel - minChannel) <= 12;
+
+            if (isWhiteBackground || maxChannel === 0) {
+                pixels[index + 3] = 0;
+                continue;
+            }
+
+            const intensity = maxChannel / 255;
+            pixels[index] = Math.round(overlayColor.r * intensity);
+            pixels[index + 1] = Math.round(overlayColor.g * intensity);
+            pixels[index + 2] = Math.round(overlayColor.b * intensity);
+            pixels[index + 3] = Math.round(alpha * intensity);
+        }
+
+        context.putImageData(imageData, 0, 0);
+        overlayPreviewSrc = canvas.toDataURL("image/png");
         updateOverlayColorLabels();
         updateOverlaySources();
         applyBlueIntensity();
@@ -631,7 +674,7 @@
     }
 
     function resetOverlayColor() {
-        overlayHsv = { h: 240, s: 100, v: 100 };
+        overlayHsv = { h: 0, s: 100, v: 100 };
         syncColorFromHsv();
     }
 

@@ -17,6 +17,7 @@ urlpatterns = [
     path('download-shapefile/', views.download_shapefile, name='download_shapefile'),
     
     # Chunked upload for large files
+    path('processing-availability/', views.processing_availability, name='processing_availability'),
     path('upload-chunk/', views.upload_chunk, name='upload_chunk'),
     
     path('api/signup/', views.signup_api),
@@ -37,4 +38,3 @@ urlpatterns = [
     
       
 ]
-

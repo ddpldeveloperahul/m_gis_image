@@ -340,12 +340,38 @@ from .file_handler import save_large_file
 
 
 @csrf_exempt
+def processing_availability(request):
+    running_job = get_active_change_job()
+
+    if running_job:
+        username = running_job.user.username if running_job.user else "another user"
+        return JsonResponse({
+            "available": False,
+            "error": f"Server busy. {username}'s change detection is already processing. Please wait until it finishes."
+        }, status=429)
+
+    return JsonResponse({"available": True})
+
+
+@csrf_exempt
 def upload_chunk(request):
     """Handle chunked file uploads from Resumable.js"""
     try:
         print(f"Upload chunk called - Method: {request.method}")
         print(f"POST data: {request.POST}")
         print(f"FILES: {request.FILES}")
+
+        user = request.user if request.user.is_authenticated else User.objects.first()
+        clear_inactive_processing_jobs()
+        clear_inactive_processing_jobs()
+
+        if request.method == 'POST':
+            running_job = get_active_change_job()
+            if running_job:
+                username = running_job.user.username if running_job.user else "another user"
+                return JsonResponse({
+                    'error': f"Server busy. {username}'s change detection is already processing. Please wait until it finishes."
+                }, status=429)
         
         if request.method == 'POST':
             # Resumable.js sends the file with name 'file'
@@ -366,7 +392,7 @@ def upload_chunk(request):
             
             print(f"Saving file: {chunk_file.name}")
             # Save the uploaded file
-            file_path = save_large_file(chunk_file, "uploads")
+            file_path = save_large_file(chunk_file, "uploads", user=user)
             print(f"File saved at: {file_path}")
             
             return JsonResponse({
@@ -385,29 +411,103 @@ def upload_chunk(request):
         }, status=500)
 
 
+# def upload_images(request):
+
+#     if request.method == 'POST':
+
+#         file1 = request.FILES.get('uploaded_2023')
+#         file2 = request.FILES.get('uploaded_2025')
+
+#         if not file1 or not file2:
+#             return JsonResponse({'error': 'Files missing'}, status=400)
+
+#         path1 = save_large_file(file1, "uploads")
+#         path2 = save_large_file(file2, "uploads")
+
+#         user = request.user if request.user.is_authenticated else User.objects.first()
+
+#         # 🔥 FIX: user_id pass karo
+#         task = run_change_detection.delay(path1, path2, user.id)
+
+#         return render(request, "processing.html", {
+#             "task_id": task.id
+#         })
+
+#     return render(request, 'upload.html')
+
+from django.db import transaction
+from django.contrib.sessions.models import Session
+from django.utils import timezone
+
+def get_logged_in_user_ids():
+    user_ids = set()
+    for session in Session.objects.filter(expire_date__gte=timezone.now()):
+        user_id = session.get_decoded().get("_auth_user_id")
+        if user_id:
+            user_ids.add(int(user_id))
+    return user_ids
+
+
+def clear_inactive_processing_jobs():
+    stale_before = timezone.now() - timedelta(minutes=30)
+    ChangeResult.objects.filter(status="processing", created_at__lt=stale_before).update(status="failed")
+    active_user_ids = get_logged_in_user_ids()
+    if active_user_ids:
+        ChangeResult.objects.filter(status="processing").exclude(user_id__in=active_user_ids).update(status="failed")
+    else:
+        ChangeResult.objects.filter(status="processing").update(status="failed")
+
+
+def get_active_change_job():
+    clear_inactive_processing_jobs()
+    return ChangeResult.objects.filter(status="processing").select_related("user").first()
+
+
 def upload_images(request):
 
     if request.method == 'POST':
 
+        user = request.user if request.user.is_authenticated else User.objects.first()
+
+        # 🔒 LOCK FIRST (before anything)
+        with transaction.atomic():
+
+            running_job = ChangeResult.objects.select_for_update().filter(status="processing").select_related("user").first()
+
+            if running_job:
+                username = running_job.user.username if running_job.user else "another user"
+                return JsonResponse({
+                    'error': '⚠️ Server busy. Please wait.'
+                }, status=429)
+
+            # ✅ job create immediately (lock acquired)
+            job = ChangeResult.objects.create(
+                user=user,
+                status="processing"
+            )
+
+        # ⬇️ now file handling
         file1 = request.FILES.get('uploaded_2023')
         file2 = request.FILES.get('uploaded_2025')
 
         if not file1 or not file2:
+            job.status = "failed"
+            job.save()
             return JsonResponse({'error': 'Files missing'}, status=400)
 
-        path1 = save_large_file(file1, "uploads")
-        path2 = save_large_file(file2, "uploads")
+        path1 = save_large_file(file1, "uploads", user=user)
+        path2 = save_large_file(file2, "uploads", user=user)
 
-        user = request.user if request.user.is_authenticated else User.objects.first()
+        # 🚀 celery
+        run_change_detection.delay(path1, path2, user.id, job.id)
 
-        # 🔥 FIX: user_id pass karo
-        task = run_change_detection.delay(path1, path2, user.id)
-
-        return render(request, "processing.html", {
-            "task_id": task.id
+        return JsonResponse({
+            "message": "Processing started",
+            "job_id": job.id
         })
 
     return render(request, 'upload.html')
+
 
 
 def result_view(request):
@@ -458,140 +558,6 @@ def result_view(request):
     }
 
     return render(request, 'result.html', context)
-
-
-
-
-
-
-# def spatial_join_view(request):
-#     prefilled_file = request.GET.get('file')
-#     file_name = os.path.basename(prefilled_file) if prefilled_file else None
-
-#     if request.method == 'POST':
-
-#         prefilled_file = request.POST.get('prefilled_file')
-#         main_zip = request.FILES.get('main_zip')
-#         change_zip = request.FILES.get('change_zip')
-
-#         base_dir = settings.MEDIA_ROOT
-#         main_dir = os.path.join(base_dir, 'main')
-#         change_dir = os.path.join(base_dir, 'change')
-#         output_dir = os.path.join(base_dir, 'spatial_output')
-
-#         # Clean old folders
-#         for d in [main_dir, change_dir]:
-#             if os.path.exists(d):
-#                 shutil.rmtree(d)
-#             os.makedirs(d)
-
-#         os.makedirs(output_dir, exist_ok=True)
-
-#         # =========================
-#         # MAIN ZIP
-#         # =========================
-#         if main_zip:
-#             main_zip_path = os.path.join(main_dir, main_zip.name)
-
-#             with open(main_zip_path, 'wb+') as f:
-#                 for chunk in main_zip.chunks():
-#                     f.write(chunk)
-
-#             zipfile.ZipFile(main_zip_path).extractall(main_dir)
-#         else:
-#             return HttpResponse("Please upload main shapefile ZIP")
-
-#         # =========================
-#         # CHANGE ZIP
-#         # =========================
-#         if not change_zip and prefilled_file:
-#             change_zip_path = os.path.join(
-#                 settings.BASE_DIR,
-#                 prefilled_file.replace('/media/', 'media/')
-#             )
-
-#             if not os.path.exists(change_zip_path):
-#                 return HttpResponse("Auto shapefile not found")
-
-#         elif change_zip:
-#             change_zip_path = os.path.join(change_dir, change_zip.name)
-
-#             with open(change_zip_path, 'wb+') as f:
-#                 for chunk in change_zip.chunks():
-#                     f.write(chunk)
-
-#         else:
-#             return HttpResponse("Change shapefile missing")
-
-#         zipfile.ZipFile(change_zip_path).extractall(change_dir)
-
-#         # =========================
-#         # FIND SHP FILE
-#         # =========================
-#         def find_shp(folder):
-#             for root, dirs, files in os.walk(folder):
-#                 for file in files:
-#                     if file.lower().endswith('.shp'):
-#                         return os.path.join(root, file)
-#             return None
-
-#         main_shp = find_shp(main_dir)
-#         change_shp = find_shp(change_dir)
-
-#         if not main_shp:
-#             return HttpResponse(".shp not found in main ZIP")
-
-#         if not change_shp:
-#             return HttpResponse(".shp not found in change ZIP")
-
-#         # =========================
-#         # PROCESS
-#         # =========================
-#         try:
-#             result = process_spatial_join(main_shp, change_shp, output_dir)
-#         except Exception as e:
-#             return HttpResponse(f"Processing Error: {str(e)}")
-
-#         # =========================
-#         # SAVE TO DATABASE
-#         # =========================
-#         user = request.user if request.user.is_authenticated else User.objects.first()
-
-#         obj = SpatialJoinResult.objects.create(user=user)
-
-#         # Save input files
-#         obj.main_shapefile.save(main_zip.name, File(open(main_zip_path, 'rb')))
-
-#         if change_zip:
-#             obj.change_shapefile.save(change_zip.name, File(open(change_zip_path, 'rb')))
-#         else:
-#             obj.change_shapefile.name = prefilled_file.replace('/media/', '')
-
-#         # Save outputs
-#         obj.result_shapefile.save(
-#             os.path.basename(result['shapefile']),
-#             File(open(result['shapefile'], 'rb'))
-#         )
-
-#         obj.result_excel.save(
-#             os.path.basename(result['excel']),
-#             File(open(result['excel'], 'rb'))
-#         )
-
-#         obj.save()
-
-#         return render(request, 'result1.html', {
-#             'result': result,
-#             'excel_url': obj.result_excel.url,
-#             'shp_url': obj.result_shapefile.url,
-#             'excel_download_url': build_download_url('download_excel', obj.result_excel.name),
-#             'shp_download_url': build_download_url('download_shapefile', obj.result_shapefile.name),
-#         })
-
-#     return render(request, 'change.html', {
-#         'prefilled_file': prefilled_file,
-#         'file_name': file_name
-#     })
 
 
 from django.http import FileResponse
@@ -791,8 +757,12 @@ def logout_api(request):
 
 def logout_view(request):
     """Handle HTML form logout and redirect to login page"""
+    if request.user.is_authenticated:
+        ChangeResult.objects.filter(user=request.user, status="processing").update(status="failed")
     logout(request)
     return redirect('login')
+
+
 
 
 @csrf_exempt
@@ -830,61 +800,112 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from celery.result import EagerResult
 from .tasks import run_change_detection
-
-@csrf_exempt
+from django.db import transaction
 @csrf_exempt
 def start_processing(request):
     try:
-        # Log request details for debugging
-        print(f"Request method: {request.method}")
-        print(f"Request body: {request.body}")
-        print(f"Content-Type: {request.META.get('CONTENT_TYPE')}")
-        
         if not request.body:
-            return JsonResponse({
-                "error": "Request body is empty"
-            }, status=400)
-        
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+
         data = json.loads(request.body)
-        print(f"Parsed data: {data}")
-        
+
         file1 = data.get('file1')
         file2 = data.get('file2')
-        
-        print(f"file1: {file1}, file2: {file2}")
-        
+
         if not file1 or not file2:
-            return JsonResponse({
-                "error": f"file1 and file2 are required. Received: file1={file1}, file2={file2}"
-            }, status=400)
+            return JsonResponse({"error": "file1 and file2 are required"}, status=400)
 
-        # ⚠️ agar 2 file hain toh dono pass karo (modify accordingly)
         user = request.user if request.user.is_authenticated else User.objects.first()
+
+        clear_inactive_processing_jobs()
+
         if user is None:
-            return JsonResponse({
-                "error": "No user found. Please create or log in as a user first."
-            }, status=400)
+            return JsonResponse({"error": "No user found"}, status=400)
 
-        task = run_change_detection.delay(file1, file2, user.id)
+        # 🔒 ATOMIC LOCK (IMPORTANT)
+        with transaction.atomic():
 
-        response = {"task_id": task.id}
-        if isinstance(task, EagerResult) and task.successful():
-            response.update({
-                "status": "SUCCESS",
-                "result": task.result,
-            })
+            running_job = ChangeResult.objects.select_for_update().filter(status="processing").select_related("user").first()
 
-        return JsonResponse(response)
-    except json.JSONDecodeError as e:
+            if running_job:
+                username = running_job.user.username if running_job.user else "another user"
+                return JsonResponse({
+                    "error": f"Server busy. {username}'s change detection is already processing. Please wait until it finishes."
+                }, status=429)
+                return JsonResponse({
+                    "error": "⚠️ Server busy. Please wait until current processing finishes."
+                }, status=429)
+
+            # ✅ create job
+            job = ChangeResult.objects.create(
+                user=user,
+                status="processing"
+            )
+
+        # 🚀 Celery call (outside transaction)
+        task = run_change_detection.delay(file1, file2, user.id, job.id)
+
         return JsonResponse({
-            "error": f"Invalid JSON: {str(e)}"
-        }, status=400)
+            "task_id": task.id,
+            "job_id": job.id
+        })
+
     except Exception as e:
         import traceback
-        print(f"Exception: {traceback.format_exc()}")
-        return JsonResponse({
-            "error": f"Error: {str(e)}"
-        }, status=500)
+        print(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
+# def start_processing(request):
+#     try:
+#         # Log request details for debugging
+#         print(f"Request method: {request.method}")
+#         print(f"Request body: {request.body}")
+#         print(f"Content-Type: {request.META.get('CONTENT_TYPE')}")
+        
+#         if not request.body:
+#             return JsonResponse({
+#                 "error": "Request body is empty"
+#             }, status=400)
+        
+#         data = json.loads(request.body)
+#         print(f"Parsed data: {data}")
+        
+#         file1 = data.get('file1')
+#         file2 = data.get('file2')
+        
+#         print(f"file1: {file1}, file2: {file2}")
+        
+#         if not file1 or not file2:
+#             return JsonResponse({
+#                 "error": f"file1 and file2 are required. Received: file1={file1}, file2={file2}"
+#             }, status=400)
+
+#         # ⚠️ agar 2 file hain toh dono pass karo (modify accordingly)
+#         user = request.user if request.user.is_authenticated else User.objects.first()
+#         if user is None:
+#             return JsonResponse({
+#                 "error": "No user found. Please create or log in as a user first."
+#             }, status=400)
+
+#         task = run_change_detection.delay(file1, file2, user.id)
+
+#         response = {"task_id": task.id}
+#         if isinstance(task, EagerResult) and task.successful():
+#             response.update({
+#                 "status": "SUCCESS",
+#                 "result": task.result,
+#             })
+
+#         return JsonResponse(response)
+#     except json.JSONDecodeError as e:
+#         return JsonResponse({
+#             "error": f"Invalid JSON: {str(e)}"
+#         }, status=400)
+#     except Exception as e:
+#         import traceback
+#         print(f"Exception: {traceback.format_exc()}")
+#         return JsonResponse({
+#             "error": f"Error: {str(e)}"
+#         }, status=500)
 
 
 @csrf_exempt

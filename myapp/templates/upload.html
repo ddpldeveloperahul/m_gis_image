@@ -209,10 +209,12 @@ async function startUpload() {
         return;
     }
 
-    document.getElementById("progressWrap").style.display="block";
-    document.getElementById("progressText").innerHTML = "Uploading...";
-
     try {
+        await checkProcessingAvailability();
+
+        document.getElementById("progressWrap").style.display="block";
+        document.getElementById("progressText").innerHTML = "Uploading...";
+
         // Upload both files
         const file1_path = await simpleUpload(f1);
         document.getElementById("progressFill").style.width = "50%";
@@ -255,6 +257,21 @@ async function startUpload() {
         console.error("Upload/processing error:", error);
         alert("Error: " + error.message);
         document.getElementById("progressWrap").style.display = "none";
+    }
+}
+
+
+async function checkProcessingAvailability() {
+    const response = await fetch('/processing-availability/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCSRF()
+        }
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.available === false) {
+        throw new Error(data.error || 'Server busy. Please wait until current processing finishes.');
     }
 }
 
