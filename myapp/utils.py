@@ -803,8 +803,12 @@ import cv2
 import fiona
 import numpy as np
 import rasterio
+from contextlib import nullcontext
+from rasterio.coords import disjoint_bounds
 from rasterio.enums import Resampling
 from rasterio.features import shapes
+from rasterio.vrt import WarpedVRT
+from rasterio.warp import transform_bounds
 from rasterio.windows import Window
 import zipfile
 
@@ -1227,14 +1231,59 @@ def export_shapefile(class_raster, shp_path):
                 feature_id += 1
 
 
+def open_aligned_new_source(old_src, new_src):
+    # Cropped old TIFF ke extent ke bahar comparison avoid karne ke liye
+    # pehle ensure karo ki full new TIFF us area ko overlap karta ho.
+    if old_src.crs and new_src.crs:
+        new_bounds_in_old_crs = transform_bounds(
+            new_src.crs,
+            old_src.crs,
+            *new_src.bounds,
+            densify_pts=21,
+        )
+        if disjoint_bounds(old_src.bounds, new_bounds_in_old_crs):
+            raise ValueError("Old TIFF extent does not overlap the new TIFF extent.")
+    elif old_src.crs != new_src.crs:
+        raise ValueError("Both TIFF files need valid CRS metadata to align cropped and full images.")
+
+    requires_alignment = any(
+        (
+            old_src.width != new_src.width,
+            old_src.height != new_src.height,
+            old_src.transform != new_src.transform,
+            old_src.crs != new_src.crs,
+        )
+    )
+
+    if not requires_alignment:
+        return nullcontext(new_src)
+
+    if not old_src.crs or not new_src.crs:
+        raise ValueError("Cropped/full TIFF alignment requires CRS metadata in both files.")
+
+    # Full new TIFF ko old cropped TIFF ki exact grid par warp/crop karo,
+    # taaki shapefile sirf old image ke covered area ke liye bane.
+    vrt_options = {
+        "crs": old_src.crs,
+        "transform": old_src.transform,
+        "width": old_src.width,
+        "height": old_src.height,
+        "resampling": Resampling.bilinear,
+    }
+
+    if new_src.nodata is not None:
+        vrt_options["src_nodata"] = new_src.nodata
+        vrt_options["nodata"] = new_src.nodata
+
+    print("Aligning new TIFF to old TIFF extent, resolution, and georeferencing...")
+    return WarpedVRT(new_src, **vrt_options)
+
+
 def process_change_detection(old_tif, new_tif, class_output, preview_output):
-    with rasterio.open(old_tif) as old_src, rasterio.open(new_tif) as new_src:
-        if (
-            old_src.width != new_src.width
-            or old_src.height != new_src.height
-            or old_src.transform != new_src.transform
-        ):
-            raise ValueError("Input TIFF files must match in size and georeferencing.")
+    # Change detection hamesha old cropped TIFF ko reference maan kar chalegi.
+    with rasterio.open(old_tif) as old_src, rasterio.open(new_tif) as new_src_raw, open_aligned_new_source(
+        old_src, new_src_raw
+    ) as new_src:
 
         class_profile = old_src.profile.copy()
         class_profile.update(
@@ -1363,15 +1412,16 @@ def process_change(old_tif, new_tif, output_dir):
     print("Reading shapefile...")
     try:
         with fiona.open(shp_output) as collection:
-            if len(collection) > 0:
-                with zipfile.ZipFile(zip_output, "w") as archive:
-                    base, _ = os.path.splitext(shp_output)
-                    for ext in (".shp", ".shx", ".dbf", ".prj", ".cpg"):
-                        part = base + ext
-                        if os.path.exists(part):
-                            archive.write(part, os.path.basename(part))
-            else:
-                zip_output = None
+            # for crop code 1416 - 1424
+            if len(collection) == 0:
+                print("No change polygons detected; exporting an empty shapefile package.")
+
+        with zipfile.ZipFile(zip_output, "w") as archive:
+            base, _ = os.path.splitext(shp_output)
+            for ext in (".shp", ".shx", ".dbf", ".prj", ".cpg"):
+                part = base + ext
+                if os.path.exists(part):
+                    archive.write(part, os.path.basename(part))
     except Exception as e:
         print(f"Error opening shapefile: {e}")
         import traceback

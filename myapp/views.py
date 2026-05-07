@@ -4,23 +4,20 @@ from django.conf import settings
 from django.urls import reverse
 from matplotlib import image
 from requests import request
-from .forms import ChangeResultForm, SpatialJoinForm
-from .utils import process_change,process_spatial_join
 import os
 import json
 import zipfile
-import shutil
 from .models import SpatialJoinResult,ChangeResult
 from django.contrib.auth.models import User
 from django.core.files import File
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image
 from django.contrib.auth import authenticate, login, logout
 from rest_framework.response import Response # type: ignore
 from rest_framework import status # type: ignore
 from myapp.serializers import SignupSerializer, LoginSerializer, SpatialJoinResultSerializer
-from rest_framework.decorators import api_view, permission_classes # type: ignore
-from rest_framework.permissions import IsAuthenticated # type: ignore
+from rest_framework.decorators import api_view # type: ignore
+from django.db import transaction
+from django.utils import timezone
 from django.http import JsonResponse
 from .models import *
 from datetime import timedelta
@@ -37,6 +34,13 @@ import os
 import geopandas as gpd
 import pandas as pd
 from urllib.parse import urlencode
+from celery.result import EagerResult # type: ignore
+from django.contrib.sessions.models import Session
+from .tasks import run_change_detection
+from .file_handler import save_large_file
+from django.http import FileResponse
+import zipfile
+from .tasks import run_spatial_join
 
 def media_url_from_path(file_path):
     return settings.MEDIA_URL + os.path.relpath(file_path, settings.MEDIA_ROOT).replace("\\", "/")
@@ -78,6 +82,11 @@ def build_download_url(route_name, file_name):
 def build_preview_path(source_path):
     base, _ = os.path.splitext(source_path)
     return base + ".png"
+
+
+def build_aligned_preview_path(source_path):
+    base, _ = os.path.splitext(source_path)
+    return base + "_aligned_to_old.png"
 
 
 def normalize_band_to_uint8(band):
@@ -159,6 +168,30 @@ def save_tiff_preview_png(source_path, preview_path):
         Image.fromarray(img, mode='RGB').save(preview_path)
         print(f"Preview saved: {preview_path}")
 
+
+def save_aligned_tiff_preview_png(reference_path, source_path, preview_path):
+    from PIL import Image
+    from rasterio.enums import Resampling
+    from .utils import open_aligned_new_source
+
+    MAX_PREVIEW_SIZE = 1024
+
+    with rasterio.open(reference_path) as reference_src, rasterio.open(source_path) as source_src:
+        with open_aligned_new_source(reference_src, source_src) as aligned_src:
+            scale = max(aligned_src.width / MAX_PREVIEW_SIZE, aligned_src.height / MAX_PREVIEW_SIZE, 1)
+            out_height = max(1, int(aligned_src.height / scale))
+            out_width = max(1, int(aligned_src.width / scale))
+            band_count = min(3, aligned_src.count)
+            data = aligned_src.read(
+                list(range(1, band_count + 1)),
+                out_shape=(band_count, out_height, out_width),
+                resampling=Resampling.bilinear,
+            )
+
+        img = to_preview_rgb(data)
+        Image.fromarray(img, mode='RGB').save(preview_path)
+        print(f"Aligned preview saved: {preview_path}")
+
 def build_result_context(result_png_path, result_tif_path, result_shp_path, img23_preview_path, img25_preview_path, img23_name, img25_name):
     return {
         'result_png': media_url_from_path(result_png_path),
@@ -178,165 +211,6 @@ def build_result_context(result_png_path, result_tif_path, result_shp_path, img2
 
 def home(request):
     return render(request, 'base.html')
-
-
-# def upload_images(request):
-
-#     import os
-#     from django.conf import settings
-#     from django.core.files import File
-#     from django.http import HttpResponse
-#     from django.shortcuts import render
-#     from django.contrib.auth.models import User
-
-#     if request.method == 'POST':
-
-#         form = ChangeResultForm(request.POST, request.FILES)
-
-#         # year1 = request.POST.get('year1')
-#         # year2 = request.POST.get('year2')
-
-#         img23 = request.FILES.get('uploaded_2023')
-#         img25 = request.FILES.get('uploaded_2025')
-
-#         print("📥 RECEIVED:",img23, img25)
-
-#         # =========================
-#         # ✅ VALIDATION
-#         # =========================
-#         # if not year1 or not year2:
-#         #     return HttpResponse("❌ Please select both years")
-
-#         # if not img23 or not img25:
-#         #     return HttpResponse("❌ Please upload both images")
-
-#         # if not form.is_valid():
-#         #     return HttpResponse("❌ Invalid form data")
-
-#         try:
-#             # =========================
-#             # 📁 PATH SETUP
-#             # =========================
-#             upload_path = os.path.join(settings.MEDIA_ROOT, 'uploads')
-#             output_path = os.path.join(settings.MEDIA_ROOT, 'outputs')
-
-#             os.makedirs(upload_path, exist_ok=True)
-#             os.makedirs(output_path, exist_ok=True)
-
-#             img23_path = os.path.join(upload_path, img23.name)
-#             img25_path = os.path.join(upload_path, img25.name)
-
-#             # =========================
-#             # 💾 SAVE FILES
-#             # =========================
-#             print("💾 Saving files...")
-
-#             # Use shutil.copyfileobj for efficient large file handling
-#             with open(img23_path, 'wb') as f:
-#                 shutil.copyfileobj(img23.file, f, length=1024*1024)
-
-#             with open(img25_path, 'wb') as f:
-#                 shutil.copyfileobj(img25.file, f, length=1024*1024)
-
-#             print("✅ Files saved")
-
-#             # =========================
-#             # 🖼️ PREVIEW
-#             # =========================
-#             print("🖼️ Generating preview...")
-
-#             img23_png_path = build_preview_path(img23_path)
-#             img25_png_path = build_preview_path(img25_path)
-
-#             save_tiff_preview_png(img23_path, img23_png_path)
-#             save_tiff_preview_png(img25_path, img25_png_path)
-
-#             print("✅ Preview created")
-
-#             # =========================
-#             # 🚀 PROCESS CHANGE
-#             # =========================
-#             print("🚀 Processing started (FAST MODE)...")
-
-#             png, tif, zip_file = process_change(
-#                 img23_path,
-#                 img25_path,
-#                 output_path,
-        
-#             )
-
-#             print("✅ Processing completed")
-
-#             # =========================
-#             # 💾 SAVE TO DATABASE
-#             # =========================
-#             user = request.user if request.user.is_authenticated else User.objects.first()
-
-#             obj = ChangeResult.objects.create(user=user)
-
-#             print("💾 Saving results to DB...")
-
-#             # input images
-#             with open(img23_path, 'rb') as f:
-#                 obj.uploaded_2023.save(img23.name, File(f), save=False)
-
-#             with open(img25_path, 'rb') as f:
-#                 obj.uploaded_2025.save(img25.name, File(f), save=False)
-
-#             # outputs
-#             with open(png, 'rb') as f:
-#                 obj.result_png.save(os.path.basename(png), File(f), save=False)
-
-#             with open(tif, 'rb') as f:
-#                 obj.result_tif.save(os.path.basename(tif), File(f), save=False)
-
-#             # ✅ SAFE SHP SAVE - Only save if zip file exists
-#             if zip_file is not None and os.path.exists(zip_file):
-#                 with open(zip_file, 'rb') as f:
-#                     obj.result_shp.save(os.path.basename(zip_file), File(f), save=False)
-#                 print(f"✅ Shapefile saved: {os.path.basename(zip_file)}")
-#             else:
-#                 print("⚠️ No shapefile created (no changes detected or empty result)")
-
-#             obj.save()
-
-#             print("✅ Saved to DB")
-
-#             # =========================
-#             # 🎯 RESPONSE
-#             # =========================
-#             context = {
-#                 'result_png': media_url_from_path(png),
-#                 'result_tif': media_url_from_path(tif),
-#                 'result_shp': media_url_from_path(zip_file) if zip_file else None,
-#                 'img23': media_url_from_path(img23_png_path),
-#                 'img25': media_url_from_path(img25_png_path),
-#                 'img23_name': img23.name,
-#                 'img25_name': img25.name,
-#             }
-
-#             return render(request, 'result.html', context)
-
-#         except Exception as e:
-#             import traceback
-#             error_msg = str(e) if str(e) else type(e).__name__
-#             traceback.print_exc()
-#             print("❌ ERROR:", error_msg)
-#             return HttpResponse(f"❌ Error: {error_msg}")
-
-#     # =========================
-#     # GET REQUEST
-#     # =========================
-#     form = ChangeResultForm()
-#     years = list(range(2000, 2027))
-
-#     return render(request, 'upload.html', {
-#         'form': form,
-#         'years': years
-#     })
-
-from .tasks import run_change_detection
-from .file_handler import save_large_file
 
 
 @csrf_exempt
@@ -410,34 +284,6 @@ def upload_chunk(request):
             'error': f"Upload error: {str(e)}"
         }, status=500)
 
-
-# def upload_images(request):
-
-#     if request.method == 'POST':
-
-#         file1 = request.FILES.get('uploaded_2023')
-#         file2 = request.FILES.get('uploaded_2025')
-
-#         if not file1 or not file2:
-#             return JsonResponse({'error': 'Files missing'}, status=400)
-
-#         path1 = save_large_file(file1, "uploads")
-#         path2 = save_large_file(file2, "uploads")
-
-#         user = request.user if request.user.is_authenticated else User.objects.first()
-
-#         # 🔥 FIX: user_id pass karo
-#         task = run_change_detection.delay(path1, path2, user.id)
-
-#         return render(request, "processing.html", {
-#             "task_id": task.id
-#         })
-
-#     return render(request, 'upload.html')
-
-from django.db import transaction
-from django.contrib.sessions.models import Session
-from django.utils import timezone
 
 def get_logged_in_user_ids():
     user_ids = set()
@@ -533,14 +379,17 @@ def result_view(request):
     img23_path = field_path(result.uploaded_2023)
     img25_path = field_path(result.uploaded_2025)
     img23_preview_path = build_preview_path(img23_path) if img23_path else None
-    img25_preview_path = build_preview_path(img25_path) if img25_path else None
+    img25_preview_path = build_aligned_preview_path(img25_path) if img23_path and img25_path else (
+        build_preview_path(img25_path) if img25_path else None
+    )
 
-    for source_path, preview_path in (
-        (img23_path, img23_preview_path),
-        (img25_path, img25_preview_path),
-    ):
-        if source_path and preview_path and not os.path.exists(preview_path):
-            save_tiff_preview_png(source_path, preview_path)
+    if img23_path and img23_preview_path and not os.path.exists(img23_preview_path):
+        save_tiff_preview_png(img23_path, img23_preview_path)
+
+    if img23_path and img25_path and img25_preview_path and not os.path.exists(img25_preview_path):
+        save_aligned_tiff_preview_png(img23_path, img25_path, img25_preview_path)
+    elif img25_path and img25_preview_path and not os.path.exists(img25_preview_path):
+        save_tiff_preview_png(img25_path, img25_preview_path)
 
     context = {
         'result_png': media_url_from_path(result_png_path) if result_png_path else '',
@@ -560,8 +409,7 @@ def result_view(request):
     return render(request, 'result.html', context)
 
 
-from django.http import FileResponse
-import zipfile
+
 
 def render_spatial_join_result(request, result_id):
     try:
@@ -654,7 +502,7 @@ def download_shapefile(request):
 
 
 
-from .tasks import run_spatial_join
+
 
 def spatial_join_view(request):
     prefilled_file = request.GET.get('file') or request.POST.get('prefilled_file')
@@ -796,11 +644,6 @@ def login_page(request):
 def signup_page(request):
     return render(request, 'signup.html')
 
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from celery.result import EagerResult
-from .tasks import run_change_detection
-from django.db import transaction
 @csrf_exempt
 def start_processing(request):
     try:
@@ -854,58 +697,6 @@ def start_processing(request):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({"error": str(e)}, status=500)
-# def start_processing(request):
-#     try:
-#         # Log request details for debugging
-#         print(f"Request method: {request.method}")
-#         print(f"Request body: {request.body}")
-#         print(f"Content-Type: {request.META.get('CONTENT_TYPE')}")
-        
-#         if not request.body:
-#             return JsonResponse({
-#                 "error": "Request body is empty"
-#             }, status=400)
-        
-#         data = json.loads(request.body)
-#         print(f"Parsed data: {data}")
-        
-#         file1 = data.get('file1')
-#         file2 = data.get('file2')
-        
-#         print(f"file1: {file1}, file2: {file2}")
-        
-#         if not file1 or not file2:
-#             return JsonResponse({
-#                 "error": f"file1 and file2 are required. Received: file1={file1}, file2={file2}"
-#             }, status=400)
-
-#         # ⚠️ agar 2 file hain toh dono pass karo (modify accordingly)
-#         user = request.user if request.user.is_authenticated else User.objects.first()
-#         if user is None:
-#             return JsonResponse({
-#                 "error": "No user found. Please create or log in as a user first."
-#             }, status=400)
-
-#         task = run_change_detection.delay(file1, file2, user.id)
-
-#         response = {"task_id": task.id}
-#         if isinstance(task, EagerResult) and task.successful():
-#             response.update({
-#                 "status": "SUCCESS",
-#                 "result": task.result,
-#             })
-
-#         return JsonResponse(response)
-#     except json.JSONDecodeError as e:
-#         return JsonResponse({
-#             "error": f"Invalid JSON: {str(e)}"
-#         }, status=400)
-#     except Exception as e:
-#         import traceback
-#         print(f"Exception: {traceback.format_exc()}")
-#         return JsonResponse({
-#             "error": f"Error: {str(e)}"
-#         }, status=500)
 
 
 @csrf_exempt
