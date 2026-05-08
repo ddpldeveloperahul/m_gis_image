@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 
 <style>
@@ -72,13 +73,13 @@
         margin-bottom: 32px;
     }
 
-    .signup-icon {
-        font-size: 48px;
+    .signup-logo {
+        width: 110px;
+        height: 88px;
+        object-fit: contain;
         margin-bottom: 16px;
         display: inline-block;
         animation: bounce 2s infinite;
-        font-weight: bold;
-        color: #667eea;
     }
 
     @keyframes bounce {
@@ -300,7 +301,7 @@
         <div class="signup-card">
             <!-- Header -->
             <div class="signup-header">
-            <div class="signup-icon">GIS</div>
+            <img src="{% static 'images/logo-DDPL.svg' %}" alt="GIS Tool Logo" class="signup-logo">
             <h1 class="signup-title">Create Account</h1>
             <p class="signup-subtitle">GIS TOOL - NEW USER REGISTRATION</p>
         </div>
