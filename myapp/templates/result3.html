@@ -1,6 +1,3 @@
-
-
-
 {% extends 'base.html' %}
 {% block content %}
 
@@ -315,30 +312,6 @@
         margin-bottom: 10px;
     }
 
-    .layer-item.is-draggable {
-        padding: 8px 10px;
-        margin-left: -10px;
-        margin-right: -10px;
-        border: 1px dashed transparent;
-        border-radius: 8px;
-        cursor: grab;
-        transition: background-color 0.15s ease, border-color 0.15s ease;
-    }
-
-    .layer-item.is-draggable:hover {
-        background: #f8f9fa;
-        border-color: #d7dee6;
-    }
-
-    .layer-item.is-dragging {
-        opacity: 0.55;
-    }
-
-    .layer-item.drag-target {
-        background: #eef5ff;
-        border-color: #86b7fe;
-    }
-
     .layer-panel label {
         display: flex;
         align-items: flex-start;
@@ -419,16 +392,13 @@
 <div class="page-wrapper">
     <div id="layerPanel" class="layer-panel">
         <h6>Layers</h6>
-        <small style="margin-top: 0; margin-bottom: 10px;"></small>
-        <div id="phaseLayerList">
-        <div class="layer-item is-draggable" data-phase-layer="back" draggable="true">
+        <div class="layer-item">
             <label><input type="checkbox" id="chkBack" checked> <span>Phase 1</span></label>
             <span class="layer-file-type">{{ img23_name }}</span>
         </div>
-        <div class="layer-item is-draggable" data-phase-layer="front" draggable="true">
+        <div class="layer-item">
             <label><input type="checkbox" id="chkFront" checked> <span>Phase 2</span></label>
             <span class="layer-file-type">{{ img25_name }}</span>
-        </div>
         </div>
         <div class="layer-item">
             <label><input type="checkbox" id="chkBlue" checked> <span>Complete Detection</span></label>
@@ -575,8 +545,6 @@
     const layerPanel = document.getElementById("layerPanel");
     const overlayPickerPanel = document.getElementById("overlayPickerPanel");
     const selectZoomBtn = document.getElementById("selectZoomBtn");
-    const phaseLayerList = document.getElementById("phaseLayerList");
-    const draggablePhaseItems = Array.from(document.querySelectorAll("[data-phase-layer]"));
     const chkBack = document.getElementById("chkBack");
     const chkFront = document.getElementById("chkFront");
     const chkBlue = document.getElementById("chkBlue");
@@ -595,7 +563,6 @@
     let overlayHsv = { h: 0, s: 100, v: 100 };
     let activePickerTarget = null;
     let compareSplitRatio = 0.5;
-    let draggedPhaseItem = null;
 
     const overlaySourceImage = new Image();
     overlaySourceImage.addEventListener("load", recolorOverlayImage);
@@ -985,54 +952,6 @@
         return layers;
     }
 
-    function getPhaseLayerOrder() {
-        return Array.from(phaseLayerList.querySelectorAll("[data-phase-layer]"))
-            .map((item) => item.dataset.phaseLayer);
-    }
-
-    function getPhaseElementMap(backElement, frontElement) {
-        return {
-            back: backElement,
-            front: frontElement
-        };
-    }
-
-    function applyPhaseOrder(backElement, frontElement, blueElement) {
-        const phaseElements = getPhaseElementMap(backElement, frontElement);
-        const phaseOrder = getPhaseLayerOrder();
-        const bottomLayer = phaseElements[phaseOrder[1]] || backElement;
-        const topLayer = phaseElements[phaseOrder[0]] || frontElement;
-
-        bottomLayer.style.zIndex = "1";
-        topLayer.style.zIndex = "2";
-        blueElement.style.zIndex = "3";
-    }
-
-    function getCompareBaseSource() {
-        const phaseLayerConfig = {
-            back: { enabled: chkBack.checked, src: backImg },
-            front: { enabled: chkFront.checked, src: frontImg }
-        };
-        const visibleBaseLayer = getPhaseLayerOrder()
-            .slice()
-            .reverse()
-            .map((layerName) => phaseLayerConfig[layerName])
-            .find((layer) => layer && layer.enabled);
-
-        return visibleBaseLayer ? visibleBaseLayer.src : resultImg;
-    }
-
-    function refreshActiveView() {
-        const selectedLayers = getSelectedLayers();
-
-        if (compareBox.style.display === "block" && selectedLayers.length >= 2) {
-            startCompare(true);
-            return;
-        }
-
-        applyLayers();
-    }
-
     function showSingleImage(src) {
         compareBox.style.display = "none";
         layerBox.style.display = "none";
@@ -1048,20 +967,8 @@
         frontElement.style.display = chkFront.checked ? "block" : "none";
         blueElement.style.display = chkBlue.checked ? "block" : "none";
 
-        applyPhaseOrder(backElement, frontElement, blueElement);
-
         backElement.style.opacity = "1";
-        frontElement.style.opacity = "1";
-
-        if (chkBack.checked && chkFront.checked) {
-            const phaseElements = getPhaseElementMap(backElement, frontElement);
-            const topLayerName = getPhaseLayerOrder()[0];
-            const topLayer = phaseElements[topLayerName];
-            if (topLayer) {
-                topLayer.style.opacity = "0.65";
-            }
-        }
-
+        frontElement.style.opacity = chkBack.checked ? "0.65" : "1";
         blueElement.style.opacity = chkBlue.checked ? `${blueOpacity}` : "0";
     }
 
@@ -1106,7 +1013,7 @@
         overlayPickerPanel.classList.toggle("is-hidden");
     }
 
-    function startCompare(keepSliderPosition = false) {
+    function startCompare() {
         const selectedLayers = getSelectedLayers();
 
         if (selectedLayers.length < 2) {
@@ -1118,15 +1025,19 @@
         zoomImage.dataset.currentLayer = "compare";
         layerBox.style.display = "none";
         compareBox.style.display = "block";
-        baseImgCompare.src = getCompareBaseSource();
+
+        if (chkBack.checked) {
+            baseImgCompare.src = backImg;
+        } else if (chkFront.checked) {
+            baseImgCompare.src = frontImg;
+        } else {
+            baseImgCompare.src = resultImg;
+        }
 
         syncLayerStack(compareRevealBack, compareRevealFront, compareRevealBlue);
         setWrapperAspectRatio(baseImgCompare.src);
 
-        if (!keepSliderPosition) {
-            compareSplitRatio = 0.5;
-        }
-
+        compareSplitRatio = 0.5;
         applyScale();
         updateSliderFromRatio();
     }
@@ -1275,65 +1186,8 @@
         stopSelection(event.pointerId);
     });
 
-    function clearPhaseDragState() {
-        draggablePhaseItems.forEach((item) => {
-            item.classList.remove("is-dragging", "drag-target");
-        });
-        draggedPhaseItem = null;
-    }
-
-    draggablePhaseItems.forEach((item) => {
-        item.addEventListener("dragstart", (event) => {
-            draggedPhaseItem = item;
-            item.classList.add("is-dragging");
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", item.dataset.phaseLayer || "");
-            }
-        });
-
-        item.addEventListener("dragover", (event) => {
-            if (!draggedPhaseItem || draggedPhaseItem === item) {
-                return;
-            }
-
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            draggablePhaseItems.forEach((phaseItem) => phaseItem.classList.remove("drag-target"));
-            item.classList.add("drag-target");
-        });
-
-        item.addEventListener("drop", (event) => {
-            if (!draggedPhaseItem || draggedPhaseItem === item) {
-                clearPhaseDragState();
-                return;
-            }
-
-            event.preventDefault();
-            item.classList.remove("drag-target");
-            const draggedRect = draggedPhaseItem.getBoundingClientRect();
-            const targetRect = item.getBoundingClientRect();
-            const isDraggingDownward = draggedRect.top < targetRect.top;
-
-            if (isDraggingDownward) {
-                phaseLayerList.insertBefore(draggedPhaseItem, item.nextSibling);
-            } else {
-                phaseLayerList.insertBefore(draggedPhaseItem, item);
-            }
-
-            refreshActiveView();
-            clearPhaseDragState();
-        });
-
-        item.addEventListener("dragend", clearPhaseDragState);
-
-        item.addEventListener("dragleave", () => {
-            item.classList.remove("drag-target");
-        });
-    });
-
     [chkBack, chkFront, chkBlue].forEach((checkbox) => {
-        checkbox.addEventListener("change", refreshActiveView);
+        checkbox.addEventListener("change", applyLayers);
     });
 
     [zoomImage, backLayer, frontLayer, blueLayer, baseImgCompare, compareRevealBack, compareRevealFront, compareRevealBlue]

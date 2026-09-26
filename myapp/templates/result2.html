@@ -62,10 +62,6 @@
         cursor: grabbing;
     }
 
-    .image-wrapper.is-selecting {
-        cursor: crosshair;
-    }
-
     .result-img {
         width: 100%;
         height: 100%;
@@ -102,22 +98,6 @@
         clip-path: inset(0 0 50% 0);
     }
 
-    .compare-zoom-layer {
-        position: absolute;
-        inset: 0;
-        transform-origin: center center;
-    }
-
-    .selection-box {
-        position: absolute;
-        border: 1px solid #1e90ff;
-        background: rgba(30, 144, 255, 0.18);
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-        display: none;
-        pointer-events: none;
-        z-index: 30;
-    }
-
     .btn-custom {
         font-weight: 600;
         padding: 12px;
@@ -137,12 +117,6 @@
         padding: 6px 14px;
         font-weight: 500;
         border-radius: 4px;
-    }
-
-    .zoom-controls .btn.is-active {
-        background: #0d6efd;
-        border-color: #0d6efd;
-        color: #ffffff;
     }
 
     .slider-controls {
@@ -292,9 +266,9 @@
         position: fixed;
         top: 92px;
         left: 20px;
-        width: min(220px, calc(100vw - 40px));
+        width: 220px;
         background: #ffffff;
-        padding: 14px;
+        padding: 15px;
         border-radius: 10px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
         border: 1px solid #e6e6e6;
@@ -307,58 +281,23 @@
     }
 
     .layer-panel h6 {
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         font-weight: 700;
     }
 
-    .layer-item {
-        margin-bottom: 10px;
-    }
-
-    .layer-item.is-draggable {
-        padding: 8px 10px;
-        margin-left: -10px;
-        margin-right: -10px;
-        border: 1px dashed transparent;
-        border-radius: 8px;
-        cursor: grab;
-        transition: background-color 0.15s ease, border-color 0.15s ease;
-    }
-
-    .layer-item.is-draggable:hover {
-        background: #f8f9fa;
-        border-color: #d7dee6;
-    }
-
-    .layer-item.is-dragging {
-        opacity: 0.55;
-    }
-
-    .layer-item.drag-target {
-        background: #eef5ff;
-        border-color: #86b7fe;
-    }
-
     .layer-panel label {
-        display: flex;
-        align-items: flex-start;
-        gap: 7px;
+        display: block;
         margin-bottom: 2px;
         cursor: pointer;
-        line-height: 1.25;
-        word-break: break-word;
-        overflow-wrap: anywhere;
     }
 
     .layer-file-type {
         display: block;
-        margin-bottom: 0;
-        margin-left: 28px;
+        margin-bottom: 10px;
+        margin-left: 24px;
         color: #6c757d;
-        font-size: 0.7rem;
-        line-height: 1.3;
+        font-size: 0.78rem;
         word-break: break-word;
-        overflow-wrap: anywhere;
     }
 
     .layer-panel small {
@@ -419,21 +358,12 @@
 <div class="page-wrapper">
     <div id="layerPanel" class="layer-panel">
         <h6>Layers</h6>
-        <small style="margin-top: 0; margin-bottom: 10px;"></small>
-        <div id="phaseLayerList">
-        <div class="layer-item is-draggable" data-phase-layer="back" draggable="true">
-            <label><input type="checkbox" id="chkBack" checked> <span>Phase 1</span></label>
-            <span class="layer-file-type">{{ img23_name }}</span>
-        </div>
-        <div class="layer-item is-draggable" data-phase-layer="front" draggable="true">
-            <label><input type="checkbox" id="chkFront" checked> <span>Phase 2</span></label>
-            <span class="layer-file-type">{{ img25_name }}</span>
-        </div>
-        </div>
-        <div class="layer-item">
-            <label><input type="checkbox" id="chkBlue" checked> <span>Complete Detection</span></label>
-            <span class="layer-file-type">{{ result_shp_name }}</span>
-        </div>
+        <label><input type="checkbox" id="chkBack" checked> Phase 1 - {{ img23_name }}</label>
+        <span class="layer-file-type"></span>
+        <label><input type="checkbox" id="chkFront" checked> Phase 2 - {{ img25_name }}</label>
+        <span class="layer-file-type"></span>
+        <label><input type="checkbox" id="chkBlue" checked> Complete Detection</label>
+        <span class="layer-file-type">{{ result_shp_name }}</span>
         {% comment %} <button type="button" class="btn btn-sm btn-success mt-2" onclick="applyLayers()">Apply
             Selection</button> {% endcomment %}
         {% comment %} <small>Checkbox change hote hi preview update ho jayega.</small> {% endcomment %}
@@ -470,23 +400,17 @@
                 </div>
 
                 <div id="compareBox" class="image-mode" style="display:none;">
-                    <div id="compareBaseStage" class="compare-zoom-layer">
-                        <img id="baseImgCompare" src="{{ img23 }}" class="result-img" draggable="false">
-                    </div>
+                    <img id="baseImgCompare" src="{{ img23 }}" class="result-img" draggable="false">
                     <div id="compareReveal" class="compare-reveal">
-                        <div id="compareRevealStage" class="compare-zoom-layer">
-                            <img id="compareRevealBack" src="{{ img23 }}" class="result-img" style="display:none;"
-                                draggable="false">
-                            <img id="compareRevealFront" src="{{ img25 }}" class="result-img" style="display:none;"
-                                draggable="false">
-                            <img id="compareRevealBlue" src="{{ result_png }}" class="result-img"
-                                style="display:none; opacity:0.35; pointer-events:none;" draggable="false">
-                        </div>
+                        <img id="compareRevealBack" src="{{ img23 }}" class="result-img" style="display:none;"
+                            draggable="false">
+                        <img id="compareRevealFront" src="{{ img25 }}" class="result-img" style="display:none;"
+                            draggable="false">
+                        <img id="compareRevealBlue" src="{{ result_png }}" class="result-img"
+                            style="display:none; opacity:0.35; pointer-events:none;" draggable="false">
                     </div>
                     <div id="sliderLine"></div>
                 </div>
-
-                <div id="selectionBox" class="selection-box"></div>
             </div>
 
             <div class="slider-controls">
@@ -502,14 +426,14 @@
                         <span>Zoom</span>
                         <span id="zoomValue">100%</span>
                     </label>
-                    <input type="range" id="zoomSlider" min="100" max="800" value="100" step="10">
+                    <input type="range" id="zoomSlider" min="100" max="250" value="100" step="10">
                 </div>
             </div>
 
             <div class="zoom-controls mb-4">
                 <button class="btn btn-outline-secondary" type="button" onclick="resetImage()">Reset</button>
                 <span class="mx-2"></span>
-                <button id="selectZoomBtn" class="btn btn-outline-primary" type="button" onclick="toggleSelectZoom()">Select Zoom</button>
+                <button class="btn btn-outline-primary" type="button" onclick="toggleLayerPanel()">Layers</button>
                 <button class="btn btn-outline-info" type="button" onclick="toggleOverlayPicker()">Change Color</button>
                 <button class="btn btn-dark" type="button" onclick="startCompare()">Compare</button>
             </div>
@@ -546,11 +470,6 @@
     let panOriginX = 0;
     let panOriginY = 0;
     let activePanPointerId = null;
-    let isSelecting = false;
-    let selectionStartX = 0;
-    let selectionStartY = 0;
-    let activeSelectionPointerId = null;
-    let selectZoomEnabled = false;
 
     const resultImg = "{{ result_png }}";
     const backImg = "{{ img23 }}";
@@ -559,24 +478,18 @@
     const zoomImage = document.getElementById("zoomImage");
     const layerBox = document.getElementById("layerBox");
     const compareBox = document.getElementById("compareBox");
-    const compareBaseStage = document.getElementById("compareBaseStage");
     const backLayer = document.getElementById("backLayer");
     const frontLayer = document.getElementById("frontLayer");
     const blueLayer = document.getElementById("blueLayer");
     const baseImgCompare = document.getElementById("baseImgCompare");
     const compareReveal = document.getElementById("compareReveal");
-    const compareRevealStage = document.getElementById("compareRevealStage");
     const compareRevealBack = document.getElementById("compareRevealBack");
     const compareRevealFront = document.getElementById("compareRevealFront");
     const compareRevealBlue = document.getElementById("compareRevealBlue");
     const sliderLine = document.getElementById("sliderLine");
-    const selectionBox = document.getElementById("selectionBox");
     const wrapper = document.getElementById("wrapper");
     const layerPanel = document.getElementById("layerPanel");
     const overlayPickerPanel = document.getElementById("overlayPickerPanel");
-    const selectZoomBtn = document.getElementById("selectZoomBtn");
-    const phaseLayerList = document.getElementById("phaseLayerList");
-    const draggablePhaseItems = Array.from(document.querySelectorAll("[data-phase-layer]"));
     const chkBack = document.getElementById("chkBack");
     const chkFront = document.getElementById("chkFront");
     const chkBlue = document.getElementById("chkBlue");
@@ -594,8 +507,6 @@
     let overlayColor = { r: 255, g: 0, b: 0 };
     let overlayHsv = { h: 0, s: 100, v: 100 };
     let activePickerTarget = null;
-    let compareSplitRatio = 0.5;
-    let draggedPhaseItem = null;
 
     const overlaySourceImage = new Image();
     overlaySourceImage.addEventListener("load", recolorOverlayImage);
@@ -627,12 +538,6 @@
         const canPan = scale > 1;
         wrapper.classList.toggle("can-pan", canPan && !isPanning);
         wrapper.classList.toggle("is-panning", isPanning);
-        wrapper.classList.toggle("is-selecting", isSelecting);
-    }
-
-    function updateSelectZoomButton() {
-        selectZoomBtn.classList.toggle("is-active", selectZoomEnabled);
-        selectZoomBtn.setAttribute("aria-pressed", selectZoomEnabled ? "true" : "false");
     }
 
     function getBlueDisplaySrc() {
@@ -691,10 +596,6 @@
 
         if (zoomImage.dataset.currentLayer === "blue") {
             zoomImage.src = tintedSrc;
-        }
-
-        if (zoomImage.dataset.currentLayer === "stack" || layerBox.style.display === "block") {
-            applyLayers();
         }
     }
 
@@ -782,161 +683,10 @@
         const transformValue = `translate(${panX}px, ${panY}px) scale(${scale})`;
         zoomImage.style.transform = transformValue;
         layerBox.style.transform = transformValue;
-        compareBox.style.transform = "none";
-        compareBaseStage.style.transform = transformValue;
-        compareRevealStage.style.transform = transformValue;
+        compareBox.style.transform = transformValue;
         zoomValue.textContent = `${Math.round(scale * 100)}%`;
         zoomSlider.value = Math.round(scale * 100);
         updatePanCursor();
-
-        if (compareBox.style.display === "block") {
-            updateSliderFromRatio();
-        }
-    }
-
-    function getReferenceImageElement() {
-        if (compareBox.style.display === "block") {
-            return baseImgCompare;
-        }
-
-        if (layerBox.style.display === "block") {
-            if (backLayer.style.display !== "none") {
-                return backLayer;
-            }
-
-            if (frontLayer.style.display !== "none") {
-                return frontLayer;
-            }
-
-            if (blueLayer.style.display !== "none") {
-                return blueLayer;
-            }
-        }
-
-        return zoomImage;
-    }
-
-    function getActiveViewportRect() {
-        return getCurrentModeElement().getBoundingClientRect();
-    }
-
-    function getFittedImageBounds(imageElement) {
-        const naturalWidth = imageElement.naturalWidth || wrapper.clientWidth;
-        const naturalHeight = imageElement.naturalHeight || wrapper.clientHeight;
-        const wrapperWidth = wrapper.clientWidth;
-        const wrapperHeight = wrapper.clientHeight;
-        const fitScale = Math.min(wrapperWidth / naturalWidth, wrapperHeight / naturalHeight);
-        const width = naturalWidth * fitScale;
-        const height = naturalHeight * fitScale;
-        const left = (wrapperWidth - width) / 2;
-        const top = (wrapperHeight - height) / 2;
-
-        return {
-            left,
-            top,
-            right: left + width,
-            bottom: top + height,
-            width,
-            height,
-        };
-    }
-
-    function getVisibleCompareBounds() {
-        const fitted = getFittedImageBounds(baseImgCompare);
-        const wrapperCenterX = wrapper.clientWidth / 2;
-        const wrapperCenterY = wrapper.clientHeight / 2;
-
-        const scaledLeft = wrapperCenterX + panX + ((fitted.left - wrapperCenterX) * scale);
-        const scaledRight = wrapperCenterX + panX + ((fitted.right - wrapperCenterX) * scale);
-        const scaledTop = wrapperCenterY + panY + ((fitted.top - wrapperCenterY) * scale);
-        const scaledBottom = wrapperCenterY + panY + ((fitted.bottom - wrapperCenterY) * scale);
-
-        return {
-            left: clamp(scaledLeft, 0, wrapper.clientWidth),
-            right: clamp(scaledRight, 0, wrapper.clientWidth),
-            top: clamp(scaledTop, 0, wrapper.clientHeight),
-            bottom: clamp(scaledBottom, 0, wrapper.clientHeight),
-        };
-    }
-
-    function getWrapperLocalPoint(clientX, clientY) {
-        const wrapperRect = wrapper.getBoundingClientRect();
-        return {
-            x: clientX - wrapperRect.left,
-            y: clientY - wrapperRect.top,
-        };
-    }
-
-    function hideSelectionBox() {
-        selectionBox.style.display = "none";
-    }
-
-    function updateSelectionBox(currentX, currentY) {
-        const left = Math.min(selectionStartX, currentX);
-        const top = Math.min(selectionStartY, currentY);
-        const width = Math.abs(currentX - selectionStartX);
-        const height = Math.abs(currentY - selectionStartY);
-
-        selectionBox.style.display = width > 0 && height > 0 ? "block" : "none";
-        selectionBox.style.left = `${left}px`;
-        selectionBox.style.top = `${top}px`;
-        selectionBox.style.width = `${width}px`;
-        selectionBox.style.height = `${height}px`;
-    }
-
-    function stopSelection(pointerId = null) {
-        if (pointerId !== null && activeSelectionPointerId !== null && pointerId !== activeSelectionPointerId) {
-            return;
-        }
-
-        if (activeSelectionPointerId !== null && wrapper.hasPointerCapture && wrapper.hasPointerCapture(activeSelectionPointerId)) {
-            wrapper.releasePointerCapture(activeSelectionPointerId);
-        }
-
-        isSelecting = false;
-        activeSelectionPointerId = null;
-        hideSelectionBox();
-        updatePanCursor();
-    }
-
-    function toggleSelectZoom(forceValue = null) {
-        selectZoomEnabled = typeof forceValue === "boolean" ? forceValue : !selectZoomEnabled;
-
-        if (!selectZoomEnabled) {
-            stopSelection();
-        }
-
-        updateSelectZoomButton();
-    }
-
-    function zoomToSelection(endX, endY) {
-        const minX = Math.min(selectionStartX, endX);
-        const maxX = Math.max(selectionStartX, endX);
-        const minY = Math.min(selectionStartY, endY);
-        const maxY = Math.max(selectionStartY, endY);
-        const width = maxX - minX;
-        const height = maxY - minY;
-
-        if (width < 24 || height < 24) {
-            stopSelection();
-            return;
-        }
-
-        const wrapperCenterX = wrapper.clientWidth / 2;
-        const wrapperCenterY = wrapper.clientHeight / 2;
-        const selectionCenterX = minX + (width / 2);
-        const selectionCenterY = minY + (height / 2);
-        const zoomFactor = Math.min(wrapper.clientWidth / width, wrapper.clientHeight / height);
-        const nextScale = clamp(scale * zoomFactor, 1, 8);
-        const contentCenterX = (selectionCenterX - wrapperCenterX - panX) / scale;
-        const contentCenterY = (selectionCenterY - wrapperCenterY - panY) / scale;
-
-        scale = nextScale;
-        panX = -contentCenterX * nextScale;
-        panY = -contentCenterY * nextScale;
-        stopSelection();
-        applyScale();
-        toggleSelectZoom(false);
     }
 
     function applyBlueIntensity() {
@@ -955,7 +705,7 @@
     }
 
     function setScale(nextScale) {
-        scale = clamp(nextScale, 1, 8);
+        scale = clamp(nextScale, 1, 2.5);
         applyScale();
     }
 
@@ -985,54 +735,6 @@
         return layers;
     }
 
-    function getPhaseLayerOrder() {
-        return Array.from(phaseLayerList.querySelectorAll("[data-phase-layer]"))
-            .map((item) => item.dataset.phaseLayer);
-    }
-
-    function getPhaseElementMap(backElement, frontElement) {
-        return {
-            back: backElement,
-            front: frontElement
-        };
-    }
-
-    function applyPhaseOrder(backElement, frontElement, blueElement) {
-        const phaseElements = getPhaseElementMap(backElement, frontElement);
-        const phaseOrder = getPhaseLayerOrder();
-        const bottomLayer = phaseElements[phaseOrder[1]] || backElement;
-        const topLayer = phaseElements[phaseOrder[0]] || frontElement;
-
-        bottomLayer.style.zIndex = "1";
-        topLayer.style.zIndex = "2";
-        blueElement.style.zIndex = "3";
-    }
-
-    function getCompareBaseSource() {
-        const phaseLayerConfig = {
-            back: { enabled: chkBack.checked, src: backImg },
-            front: { enabled: chkFront.checked, src: frontImg }
-        };
-        const visibleBaseLayer = getPhaseLayerOrder()
-            .slice()
-            .reverse()
-            .map((layerName) => phaseLayerConfig[layerName])
-            .find((layer) => layer && layer.enabled);
-
-        return visibleBaseLayer ? visibleBaseLayer.src : resultImg;
-    }
-
-    function refreshActiveView() {
-        const selectedLayers = getSelectedLayers();
-
-        if (compareBox.style.display === "block" && selectedLayers.length >= 2) {
-            startCompare(true);
-            return;
-        }
-
-        applyLayers();
-    }
-
     function showSingleImage(src) {
         compareBox.style.display = "none";
         layerBox.style.display = "none";
@@ -1048,20 +750,8 @@
         frontElement.style.display = chkFront.checked ? "block" : "none";
         blueElement.style.display = chkBlue.checked ? "block" : "none";
 
-        applyPhaseOrder(backElement, frontElement, blueElement);
-
         backElement.style.opacity = "1";
-        frontElement.style.opacity = "1";
-
-        if (chkBack.checked && chkFront.checked) {
-            const phaseElements = getPhaseElementMap(backElement, frontElement);
-            const topLayerName = getPhaseLayerOrder()[0];
-            const topLayer = phaseElements[topLayerName];
-            if (topLayer) {
-                topLayer.style.opacity = "0.65";
-            }
-        }
-
+        frontElement.style.opacity = chkBack.checked ? "0.65" : "1";
         blueElement.style.opacity = chkBlue.checked ? `${blueOpacity}` : "0";
     }
 
@@ -1098,15 +788,18 @@
         applyBlueIntensity();
         resetOverlayColor();
         resetZoom();
-        toggleSelectZoom(false);
         applyLayers();
+    }
+
+    function toggleLayerPanel() {
+        layerPanel.classList.toggle("is-hidden");
     }
 
     function toggleOverlayPicker() {
         overlayPickerPanel.classList.toggle("is-hidden");
     }
 
-    function startCompare(keepSliderPosition = false) {
+    function startCompare() {
         const selectedLayers = getSelectedLayers();
 
         if (selectedLayers.length < 2) {
@@ -1114,42 +807,33 @@
             return;
         }
 
+        resetZoom();
         zoomImage.style.display = "none";
         zoomImage.dataset.currentLayer = "compare";
         layerBox.style.display = "none";
         compareBox.style.display = "block";
-        baseImgCompare.src = getCompareBaseSource();
+
+        if (chkBack.checked) {
+            baseImgCompare.src = backImg;
+        } else if (chkFront.checked) {
+            baseImgCompare.src = frontImg;
+        } else {
+            baseImgCompare.src = resultImg;
+        }
 
         syncLayerStack(compareRevealBack, compareRevealFront, compareRevealBlue);
         setWrapperAspectRatio(baseImgCompare.src);
 
-        if (!keepSliderPosition) {
-            compareSplitRatio = 0.5;
-        }
-
-        applyScale();
-        updateSliderFromRatio();
-    }
-
-    function updateSliderFromRatio() {
-        const bounds = getVisibleCompareBounds();
-        const pos = bounds.top + (bounds.bottom - bounds.top) * compareSplitRatio;
-        renderSlider(bounds, pos);
-    }
-
-    function renderSlider(bounds, pos) {
-        compareReveal.style.clipPath = `inset(${bounds.top}px ${wrapper.clientWidth - bounds.right}px ${wrapper.clientHeight - pos}px ${bounds.left}px)`;
-        sliderLine.style.left = `${bounds.left}px`;
-        sliderLine.style.width = `${Math.max(0, bounds.right - bounds.left)}px`;
-        sliderLine.style.top = `${pos}px`;
+        updateSlider(wrapper.clientHeight / 2);
     }
 
     function updateSlider(y) {
-        const bounds = getVisibleCompareBounds();
-        const pos = clamp(y, bounds.top, bounds.bottom);
-        const height = Math.max(bounds.bottom - bounds.top, 1);
-        compareSplitRatio = (pos - bounds.top) / height;
-        renderSlider(bounds, pos);
+        const rect = wrapper.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(y, rect.height));
+        const percentage = (pos / rect.height) * 100;
+
+        compareReveal.style.clipPath = `inset(0 0 ${100 - percentage}% 0)`;
+        sliderLine.style.top = `${pos}px`;
     }
 
     function stopPanning(pointerId = null) {
@@ -1180,7 +864,6 @@
     window.addEventListener("pointerup", () => {
         isSliderDragging = false;
         stopPanning();
-        stopSelection();
     });
 
     window.addEventListener("pointermove", (event) => {
@@ -1199,31 +882,17 @@
     }, { passive: false });
 
     wrapper.addEventListener("pointerdown", (event) => {
-        if (event.button !== 0 || event.target === sliderLine) {
+        if (event.button !== 0 || event.target === sliderLine || scale <= 1) {
             return;
         }
 
-        if (!selectZoomEnabled && scale > 1) {
-            event.preventDefault();
-            isPanning = true;
-            activePanPointerId = event.pointerId;
-            panStartX = event.clientX;
-            panStartY = event.clientY;
-            panOriginX = panX;
-            panOriginY = panY;
-        } else {
-            if (!selectZoomEnabled) {
-                return;
-            }
-
-            event.preventDefault();
-            const imagePoint = getWrapperLocalPoint(event.clientX, event.clientY);
-            isSelecting = true;
-            activeSelectionPointerId = event.pointerId;
-            selectionStartX = imagePoint.x;
-            selectionStartY = imagePoint.y;
-            updateSelectionBox(selectionStartX, selectionStartY);
-        }
+        event.preventDefault();
+        isPanning = true;
+        activePanPointerId = event.pointerId;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+        panOriginX = panX;
+        panOriginY = panY;
 
         if (wrapper.setPointerCapture) {
             wrapper.setPointerCapture(event.pointerId);
@@ -1233,120 +902,32 @@
     });
 
     wrapper.addEventListener("pointermove", (event) => {
-        if (isPanning && event.pointerId === activePanPointerId) {
-            if ((event.buttons & 1) !== 1) {
-                stopPanning(event.pointerId);
-                return;
-            }
-
-            event.preventDefault();
-            panX = panOriginX + (event.clientX - panStartX);
-            panY = panOriginY + (event.clientY - panStartY);
-            applyScale();
-            return;
-        }
-
-        if (!isSelecting || event.pointerId !== activeSelectionPointerId) {
+        if (!isPanning || event.pointerId !== activePanPointerId) {
             return;
         }
 
         if ((event.buttons & 1) !== 1) {
-            stopSelection(event.pointerId);
+            stopPanning(event.pointerId);
             return;
         }
 
         event.preventDefault();
-        const imagePoint = getWrapperLocalPoint(event.clientX, event.clientY);
-        updateSelectionBox(imagePoint.x, imagePoint.y);
+        panX = panOriginX + (event.clientX - panStartX);
+        panY = panOriginY + (event.clientY - panStartY);
+        applyScale();
     });
 
     wrapper.addEventListener("pointerup", (event) => {
         stopPanning(event.pointerId);
-        if (!isSelecting || event.pointerId !== activeSelectionPointerId) {
-            return;
-        }
-
-        const imagePoint = getWrapperLocalPoint(event.clientX, event.clientY);
-        zoomToSelection(imagePoint.x, imagePoint.y);
     });
 
     wrapper.addEventListener("pointercancel", (event) => {
         stopPanning(event.pointerId);
-        stopSelection(event.pointerId);
-    });
-
-    function clearPhaseDragState() {
-        draggablePhaseItems.forEach((item) => {
-            item.classList.remove("is-dragging", "drag-target");
-        });
-        draggedPhaseItem = null;
-    }
-
-    draggablePhaseItems.forEach((item) => {
-        item.addEventListener("dragstart", (event) => {
-            draggedPhaseItem = item;
-            item.classList.add("is-dragging");
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", item.dataset.phaseLayer || "");
-            }
-        });
-
-        item.addEventListener("dragover", (event) => {
-            if (!draggedPhaseItem || draggedPhaseItem === item) {
-                return;
-            }
-
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            draggablePhaseItems.forEach((phaseItem) => phaseItem.classList.remove("drag-target"));
-            item.classList.add("drag-target");
-        });
-
-        item.addEventListener("drop", (event) => {
-            if (!draggedPhaseItem || draggedPhaseItem === item) {
-                clearPhaseDragState();
-                return;
-            }
-
-            event.preventDefault();
-            item.classList.remove("drag-target");
-            const draggedRect = draggedPhaseItem.getBoundingClientRect();
-            const targetRect = item.getBoundingClientRect();
-            const isDraggingDownward = draggedRect.top < targetRect.top;
-
-            if (isDraggingDownward) {
-                phaseLayerList.insertBefore(draggedPhaseItem, item.nextSibling);
-            } else {
-                phaseLayerList.insertBefore(draggedPhaseItem, item);
-            }
-
-            refreshActiveView();
-            clearPhaseDragState();
-        });
-
-        item.addEventListener("dragend", clearPhaseDragState);
-
-        item.addEventListener("dragleave", () => {
-            item.classList.remove("drag-target");
-        });
     });
 
     [chkBack, chkFront, chkBlue].forEach((checkbox) => {
-        checkbox.addEventListener("change", refreshActiveView);
+        checkbox.addEventListener("change", applyLayers);
     });
-
-    [zoomImage, backLayer, frontLayer, blueLayer, baseImgCompare, compareRevealBack, compareRevealFront, compareRevealBlue]
-        .forEach((imageElement) => {
-            imageElement.addEventListener("load", () => {
-                if (compareBox.style.display === "block") {
-                    syncLayerStack(compareRevealBack, compareRevealFront, compareRevealBlue);
-                    return;
-                }
-
-                applyLayers();
-            });
-        });
 
     blueIntensitySlider.addEventListener("input", () => {
         blueOpacity = Number(blueIntensitySlider.value) / 100;
@@ -1381,10 +962,8 @@
 
     updateOverlayColorLabels();
     applyBlueIntensity();
-    updateSelectZoomButton();
     setWrapperAspectRatio(resultImg);
     applyLayers();
-    window.addEventListener("load", applyLayers);
 </script>
 
 {% endblock %}

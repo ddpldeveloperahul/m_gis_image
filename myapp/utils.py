@@ -811,9 +811,10 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import transform_bounds
 from rasterio.windows import Window
 import zipfile
+from shapely.geometry import shape
 
 
-ROW_CHUNK = 64
+ROW_CHUNK = 256
 HALO = 16
 MIN_BUILDING_PIXELS = 96
 MIN_ROAD_PIXELS = 72
@@ -821,7 +822,7 @@ MIN_BUILDING_DELTA = 32.0
 MIN_ROAD_DELTA = 18.0
 MIN_BUILDING_SCORE = 0.60
 MIN_ROAD_SCORE = 0.54
-BUILDING_SCORE_MARGIN = 0.18
+BUILDING_SCORE_MARGIN = 0.22
 ROAD_SCORE_MARGIN = 0.14
 SHADOW_BRIGHTNESS_DROP = 24.0
 SHADOW_MAX_BRIGHTNESS = 160.0
@@ -1022,6 +1023,31 @@ def compute_change_metrics(old_rgb, new_rgb):
     strong_new_building = (new_build_scores >= STRONG_BUILDING_SCORE) & (delta >= (MIN_BUILDING_DELTA + 8.0))
     strong_new_road = (new_road_scores >= STRONG_ROAD_SCORE) & (delta >= (MIN_ROAD_DELTA + 6.0))
 
+    # Vegetation (Green crop / field) change detection:
+    old_f = old_rgb.astype(np.float32)
+    new_f = new_rgb.astype(np.float32)
+    old_green_dom = old_f[:, :, 1] - np.maximum(old_f[:, :, 0], old_f[:, :, 2])
+    new_green_dom = new_f[:, :, 1] - np.maximum(new_f[:, :, 0], new_f[:, :, 2])
+
+    old_denom = np.where((old_f[:, :, 1] + old_f[:, :, 0] - old_f[:, :, 2]) == 0, 1e-6, (old_f[:, :, 1] + old_f[:, :, 0] - old_f[:, :, 2]))
+    new_denom = np.where((new_f[:, :, 1] + new_f[:, :, 0] - new_f[:, :, 2]) == 0, 1e-6, (new_f[:, :, 1] + new_f[:, :, 0] - new_f[:, :, 2]))
+    old_vari = (old_f[:, :, 1] - old_f[:, :, 0]) / old_denom
+    new_vari = (new_f[:, :, 1] - new_f[:, :, 0]) / new_denom
+
+    # 1. Bare soil to green crops (Veg Gain - e.g. 2023 bare field -> 2025 green crop):
+    # - New image has clear green dominance (>= 4.0)
+    # - Greenness has increased relative to 2023
+    veg_gain = (new_green_dom >= 4.0) & (
+        ((new_green_dom - old_green_dom) >= 4.0) | ((new_vari - old_vari) >= 0.03)
+    )
+    # 2. Green crops to bare soil (Veg Loss / Harvested):
+    # - Old image had clear green dominance (>= 4.0)
+    # - Greenness dropped significantly in 2025
+    veg_loss = (old_green_dom >= 4.0) & (
+        ((old_green_dom - new_green_dom) >= 4.0) | ((old_vari - new_vari) >= 0.03)
+    )
+    veg_change = (veg_gain | veg_loss) & (delta >= 12.0)
+
     return {
         "old_build_scores": old_build_scores,
         "new_build_scores": new_build_scores,
@@ -1032,6 +1058,7 @@ def compute_change_metrics(old_rgb, new_rgb):
         "old_building_mask": old_building_mask,
         "strong_new_building": strong_new_building,
         "strong_new_road": strong_new_road,
+        "veg_change": veg_change,
     }
 
 
@@ -1053,9 +1080,11 @@ def classify_primary_changes(metrics):
         & (metrics["delta"] >= MIN_ROAD_DELTA)
         & (~metrics["shadow_mask"])
     )
+    veg_mask = metrics["veg_change"] & (~metrics["shadow_mask"])
 
     classes[road_mask] = 2
     classes[building_mask] = 1
+    classes[veg_mask & (classes == 0)] = 3
     return classes
 
 
@@ -1081,9 +1110,11 @@ def classify_rescue_changes(metrics):
         & (metrics["delta"] >= RESCUE_ROAD_DELTA)
         & ((~metrics["shadow_mask"]) | shadow_exception)
     )
+    veg_mask = metrics["veg_change"] & ((~metrics["shadow_mask"]) | shadow_exception)
 
     classes[road_mask] = 2
     classes[building_mask] = 1
+    classes[veg_mask & (classes == 0)] = 3
     return classes
 
 
@@ -1146,6 +1177,7 @@ def filter_road_components(road_mask, min_area):
 def clean_primary_classes(added_classes):
     building = (added_classes == 1).astype(np.uint8)
     road = (added_classes == 2).astype(np.uint8)
+    veg = (added_classes == 3).astype(np.uint8)
 
     building = cv2.medianBlur(building, 5)
     building = cv2.morphologyEx(building, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
@@ -1157,7 +1189,17 @@ def clean_primary_classes(added_classes):
     road = cv2.morphologyEx(road, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     road = filter_road_components(road, MIN_ROAD_PIXELS)
 
+    veg = cv2.medianBlur(veg, 5)
+    veg = cv2.morphologyEx(veg, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+    veg = cv2.morphologyEx(veg, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(veg, connectivity=8)
+    filtered_veg = np.zeros_like(veg)
+    for label in range(1, num_labels):
+        if stats[label, cv2.CC_STAT_AREA] >= 40:
+            filtered_veg[labels == label] = 1
+
     cleaned = np.zeros_like(added_classes, dtype=np.uint8)
+    cleaned[filtered_veg == 1] = 3
     cleaned[road == 1] = 2
     cleaned[building == 1] = 1
     return cleaned
@@ -1166,10 +1208,11 @@ def clean_primary_classes(added_classes):
 def clean_rescue_classes(added_classes):
     building = (added_classes == 1).astype(np.uint8)
     road = (added_classes == 2).astype(np.uint8)
+    veg = (added_classes == 3).astype(np.uint8)
 
     building = cv2.medianBlur(building, 5)
     building = cv2.morphologyEx(building, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-    building = cv2.morphologyEx(building, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    building = cv2.morphologyEx(building, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
     building = filter_building_components(building, RESCUE_MIN_BUILDING_PIXELS)
 
     road = cv2.medianBlur(road, 5)
@@ -1177,7 +1220,17 @@ def clean_rescue_classes(added_classes):
     road = cv2.morphologyEx(road, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     road = filter_road_components(road, RESCUE_MIN_ROAD_PIXELS)
 
+    veg = cv2.medianBlur(veg, 5)
+    veg = cv2.morphologyEx(veg, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+    veg = cv2.morphologyEx(veg, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(veg, connectivity=8)
+    filtered_veg = np.zeros_like(veg)
+    for label in range(1, num_labels):
+        if stats[label, cv2.CC_STAT_AREA] >= 30:
+            filtered_veg[labels == label] = 1
+
     cleaned = np.zeros_like(added_classes, dtype=np.uint8)
+    cleaned[filtered_veg == 1] = 3
     cleaned[road == 1] = 2
     cleaned[building == 1] = 1
     return cleaned
@@ -1185,8 +1238,10 @@ def clean_rescue_classes(added_classes):
 
 def merge_cleaned_classes(primary, rescue):
     merged = primary.copy()
-    rescue_building = (rescue == 1) & (primary == 0)
+    rescue_veg = (rescue == 3) & (primary == 0)
     rescue_road = (rescue == 2) & (primary == 0)
+    rescue_building = (rescue == 1) & (primary == 0)
+    merged[rescue_veg] = 3
     merged[rescue_road] = 2
     merged[rescue_building] = 1
     return merged
@@ -1194,8 +1249,9 @@ def merge_cleaned_classes(primary, rescue):
 
 def make_preview_rgb(class_arr):
     rgb = np.full((class_arr.shape[0], class_arr.shape[1], 3), 255, dtype=np.uint8)
-    rgb[class_arr == 1] = (255, 0, 0)
-    rgb[class_arr == 2] = (0, 0, 255)
+    rgb[class_arr == 1] = (255, 0, 0)     # Building = Red
+    rgb[class_arr == 2] = (0, 0, 255)     # Road = Blue
+    rgb[class_arr == 3] = (0, 180, 0)     # Vegetation/Crop change = Green
     return rgb
 
 
@@ -1206,6 +1262,9 @@ def export_shapefile(class_raster, shp_path):
     }
 
     with rasterio.open(class_raster) as src:
+        is_geo = getattr(src.crs, 'is_geographic', False) if src.crs else False
+        min_poly_area = 1e-7 if is_geo else 10.0
+
         with fiona.open(
             shp_path,
             "w",
@@ -1218,12 +1277,16 @@ def export_shapefile(class_raster, shp_path):
                 value = int(value)
                 if value == 0:
                     continue
+                poly = shape(geom)
+                if poly.area < min_poly_area:
+                    continue
+                class_label = "building" if value == 1 else ("road" if value == 2 else "vegetation")
                 sink.write(
                     {
                         "geometry": geom,
                         "properties": {
                             "id": feature_id,
-                            "class": "building" if value == 1 else "road",
+                            "class": class_label,
                             "value": value,
                         },
                     }
@@ -1629,19 +1692,42 @@ def process_spatial_join(main_path, change_path, output_dir):
             break
 
     if main_id_col is None:
-        raise Exception(f"No ID column found in MAIN. Columns: {list(main.columns)}")
+        main_id_col = "BUILDING_ID"
+        main[main_id_col] = [f"BLD_{i+1:06d}" for i in range(len(main))]
+    else:
+        # Fill any missing values in existing ID column
+        null_mask = main[main_id_col].isna() | (main[main_id_col].astype(str).str.strip().isin(['', 'None', 'nan', 'NaN']))
+        if null_mask.any():
+            for i, idx in enumerate(main[null_mask].index):
+                main.loc[idx, main_id_col] = f"BLD_{i+1:06d}"
 
     # =========================
-    # REMOVE SMALL NOISE (IMPORTANT)
+    # CRS HANDLING FOR ACCURATE AREA (METRIC)
     # =========================
-    change = change[change.geometry.area > 10].copy()   # threshold adjust kar sakte ho
+    is_geographic = getattr(main.crs, 'is_geographic', False) if main.crs else False
+    if is_geographic:
+        try:
+            metric_crs = main.estimate_utm_crs()
+            main_metric = main.to_crs(metric_crs)
+            change_metric = change.to_crs(metric_crs)
+        except Exception:
+            main_metric = main
+            change_metric = change
+    else:
+        main_metric = main
+        change_metric = change
+
+    # Remove small noise polygons (less than 10 sq. units/meters)
+    noise_mask = change_metric.geometry.area > 10
+    change = change[noise_mask].copy()
+    change_metric = change_metric[noise_mask].copy()
 
     # =========================
     # SPATIAL JOIN
     # =========================
     joined = gpd.sjoin(
-        main,
-        change[['geometry']],
+        main_metric[[main_id_col, 'geometry']],
+        change_metric[['geometry']],
         how='left',
         predicate='intersects'
     )
@@ -1650,46 +1736,39 @@ def process_spatial_join(main_path, change_path, output_dir):
     # CALCULATE INTERSECTION AREA
     # =========================
     joined['intersection_area'] = 0.0
-
     valid = joined['index_right'].notna()
 
-    joined.loc[valid, 'intersection_area'] = joined[valid].apply(
-        lambda row: row.geometry.intersection(
-            change.loc[int(row['index_right'])].geometry
-        ).area,
-        axis=1
+    if valid.any():
+        joined.loc[valid, 'intersection_area'] = joined[valid].apply(
+            lambda row: row.geometry.intersection(
+                change_metric.loc[int(row['index_right'])].geometry
+            ).area,
+            axis=1
+        )
+
+    # =========================
+    # SUM INTERSECTION AREAS PER PARCEL
+    # (Fixes the issue where multiple change polygons on one parcel were not combined)
+    # =========================
+    agg_area = joined.groupby(joined.index)['intersection_area'].sum()
+
+    final = main.copy()
+    final['intersection_area'] = final.index.map(agg_area).fillna(0.0)
+    final['building_area'] = main_metric.geometry.area
+
+    # % CHANGE (Capped at 1.0 / 100%)
+    final['change_percent'] = np.where(
+        final['building_area'] > 0,
+        (final['intersection_area'] / final['building_area']).clip(0.0, 1.0),
+        0.0
     )
 
     # =========================
-    # BUILDING AREA
+    # THRESHOLD (5% Change)
     # =========================
-    joined['building_area'] = joined.geometry.area
+    THRESHOLD = 0.05
+    final['changed_flag'] = final['change_percent'] > THRESHOLD
 
-    # =========================
-    # % CHANGE
-    # =========================
-    joined['change_percent'] = joined['intersection_area'] / joined['building_area']
-
-    # =========================
-    # THRESHOLD (IMPORTANT)
-    # =========================
-    THRESHOLD = 0.05   # 5% change (adjust kar sakte ho)
-
-    joined['changed_flag'] = joined['change_percent'] > THRESHOLD
-
-    # =========================
-    # REMOVE DUPLICATES
-    # =========================
-    final = joined.groupby(joined.index).agg({
-        main_id_col: 'first',
-        'geometry': 'first',
-        'changed_flag': 'max',
-        'change_percent': 'max'
-    }).reset_index(drop=True)
-
-    # =========================
-    # FIX GEODATAFRAME ERROR
-    # =========================
     final = gpd.GeoDataFrame(final, geometry='geometry', crs=main.crs)
 
     # =========================
@@ -1736,7 +1815,32 @@ def process_spatial_join(main_path, change_path, output_dir):
         best_matches = valid_matches.sort_values('intersection_area').drop_duplicates('_chg_idx', keep='last')
         land_ids = best_matches.set_index('_chg_idx')[main_id_col].to_dict()
 
-    change_export['LAND_ID'] = change_export.index.map(land_ids)
+    # =========================
+    # ASSIGN LAND_ID (WITH AUTO-GENERATED NEW_ID WHERE MISSING)
+    # =========================
+    def format_land_id(val):
+        if pd.isna(val) or val is None or str(val).strip().lower() in ('', 'none', 'nan', 'null'):
+            return None
+        try:
+            f = float(val)
+            if f.is_integer():
+                return str(int(f))
+        except (ValueError, TypeError):
+            pass
+        return str(val).strip()
+
+    mapped_ids = change_export.index.map(land_ids)
+    new_id_counter = 1
+    final_land_ids = []
+    for val in mapped_ids:
+        formatted = format_land_id(val)
+        if formatted is not None:
+            final_land_ids.append(formatted)
+        else:
+            final_land_ids.append(f"NEW_{new_id_counter:05d}")
+            new_id_counter += 1
+
+    change_export['LAND_ID'] = final_land_ids
     change_export['CHANGED'] = 'YES'
 
     export_cols = [col for col in ['id', 'class', 'value'] if col in change_export.columns]

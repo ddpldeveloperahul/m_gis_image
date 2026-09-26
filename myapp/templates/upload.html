@@ -1,336 +1,540 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 
 <script src="https://cdn.jsdelivr.net/npm/resumablejs/resumable.js"></script>
 
 <style>
+    /* ===== CHANGE DETECTION UPLOAD UI ===== */
+    .upload-page {
+        min-height: calc(100vh - 86px);
+        padding: 64px 18px;
+        background:
+            linear-gradient(135deg, rgba(5, 12, 27, 0.72), rgba(12, 30, 50, 0.86)),
+            radial-gradient(circle at 18% 20%, rgba(0, 212, 255, 0.14), transparent 34%),
+            radial-gradient(circle at 82% 18%, rgba(0, 185, 140, 0.12), transparent 30%);
+    }
 
-/* ===== MODERN GLASS UI ===== */
-.upload-container {
-    max-width: 1000px;
-    margin: 60px auto;
-    padding: 20px;
-}
+    .upload-container {
+        max-width: 1080px;
+        margin: 0 auto;
+    }
 
-.upload-card {
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(20px);
-    border-radius: 25px;
-    padding: 40px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-}
+    .upload-card {
+        background: rgba(245, 248, 252, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        border-radius: 22px;
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+        overflow: hidden;
+    }
 
-/* ===== DROPZONE ===== */
-.dropzone {
-    border: 2px dashed #cbd5e1;
-    border-radius: 20px;
-    padding: 50px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.4s ease;
-    position: relative;
-    overflow: hidden;
-}
+    .brand-panel {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 22px;
+        padding: 28px 34px;
+        background: linear-gradient(135deg, #f8fbff 0%, #eaf4f8 100%);
+        border-bottom: 1px solid #d8e5ee;
+    }
 
-.dropzone:hover {
-    border-color: #1677ff;
-    transform: translateY(-3px);
-}
+    .company-logo-box {
+        width: 92px;
+        height: 74px;
+        border-radius: 18px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 0 1px #e5eef4, 0 12px 30px rgba(15, 33, 55, 0.12);
+    }
 
-.dropzone.dragover {
-    border-color: #00b98c;
-    background: rgba(0,185,140,0.1);
-    transform: scale(1.03);
-    box-shadow: 0 10px 40px rgba(0,185,140,0.3);
-}
+    .company-logo {
+        width: 76px;
+        height: 62px;
+        object-fit: contain;
+    }
 
-/* glow effect */
-.dropzone::after {
-    content: "";
-    position: absolute;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(22,119,255,0.2), transparent);
-    opacity: 0;
-    transition: 0.4s;
-}
+    .brand-title {
+        margin: 0;
+        color: #172033;
+        font-size: 30px;
+        font-weight: 800;
+    }
 
-.dropzone.dragover::after {
-    opacity: 1;
-}
+    .brand-subtitle {
+        margin: 6px 0 0;
+        color: #526174;
+        font-size: 14px;
+        font-weight: 600;
+    }
 
-/* ===== FILE NAME ===== */
-.file-name {
-    margin-top: 12px;
-    font-weight: 600;
-    color: #0c4a6e;
-}
+    .brand-chip {
+        color: #064e3b;
+        background: #d8f7ee;
+        border: 1px solid #9ce5cf;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        white-space: nowrap;
+    }
 
-/* ===== BUTTON ===== */
-.upload-btn {
-    margin-top: 30px;
-    width: 100%;
-    padding: 16px;
-    border-radius: 14px;
-    border: none;
-    background: linear-gradient(135deg,#1677ff,#00b98c);
-    color: white;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-}
+    .upload-body {
+        padding: 34px;
+    }
 
-.upload-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(22,119,255,0.4);
-}
+    .section-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 22px;
+    }
 
-/* ===== PROGRESS ===== */
-.progress-wrapper {
-    margin-top: 25px;
-    display: none;
-}
+    .section-heading h2 {
+        margin: 0;
+        color: #172033;
+        font-size: 22px;
+        font-weight: 800;
+    }
 
-.progress-bar {
-    width: 100%;
-    height: 12px;
-    background: #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-}
+    .section-heading p {
+        margin: 4px 0 0;
+        color: #5c6878;
+        font-size: 14px;
+    }
 
-.progress-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(135deg,#1677ff,#00b98c);
-    transition: 0.3s;
-}
+    .format-note {
+        color: #0f5b76;
+        background: #e7f8ff;
+        border: 1px solid #b9eafa;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
 
-.progress-text {
-    margin-top: 10px;
-    font-weight: 600;
-    text-align: center;
-}
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+    }
 
-/* ===== GRID ===== */
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
+    .dropzone {
+        min-height: 220px;
+        border: 2px dashed #b9c9d8;
+        border-radius: 18px;
+        padding: 28px;
+        cursor: pointer;
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(242, 247, 251, 0.92));
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
 
+    .dropzone:hover {
+        border-color: #1677ff;
+        transform: translateY(-3px);
+        box-shadow: 0 18px 34px rgba(22, 119, 255, 0.16);
+    }
+
+    .dropzone.dragover {
+        border-color: #00b98c;
+        background: #ecfff9;
+        transform: translateY(-3px);
+        box-shadow: 0 18px 42px rgba(0, 185, 140, 0.24);
+    }
+
+    .dropzone::before {
+        content: attr(data-step);
+        position: absolute;
+        top: 18px;
+        right: 20px;
+        color: #8ea1b3;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }
+
+    .zone-top {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .zone-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        color: white;
+        background: linear-gradient(135deg, #1677ff, #00b98c);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 900;
+        box-shadow: 0 12px 28px rgba(22, 119, 255, 0.24);
+        flex: 0 0 auto;
+    }
+
+    .dropzone h3 {
+        margin: 0;
+        color: #1d2733;
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    .dropzone p {
+        margin: 6px 0 0;
+        color: #5d6877;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .zone-footer {
+        margin-top: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid #dce7ef;
+        padding-top: 18px;
+    }
+
+    .browse-pill {
+        color: #0c4a6e;
+        background: #e8f6ff;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .file-name {
+        min-width: 0;
+        color: #0c4a6e;
+        font-size: 13px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .upload-btn {
+        margin-top: 30px;
+        width: 100%;
+        padding: 16px;
+        border-radius: 16px;
+        border: none;
+        background: linear-gradient(135deg, #1677ff 0%, #0aa7d8 48%, #00b98c 100%);
+        color: white;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: 0.3s;
+        box-shadow: 0 16px 36px rgba(22, 119, 255, 0.26);
+    }
+
+    .upload-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 42px rgba(22, 119, 255, 0.4);
+    }
+
+    .progress-wrapper {
+        margin-top: 25px;
+        display: none;
+        background: #eef5f8;
+        border: 1px solid #d5e4ec;
+        border-radius: 16px;
+        padding: 16px;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 12px;
+        background: #dbe8ef;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(135deg, #1677ff, #00b98c);
+        transition: 0.3s;
+    }
+
+    .progress-text {
+        margin-top: 10px;
+        color: #244154;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    @media (max-width: 820px) {
+        .upload-page {
+            padding: 28px 14px;
+        }
+
+        .brand-panel,
+        .section-heading {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .brand-title {
+            font-size: 24px;
+        }
+
+        .brand-chip,
+        .format-note {
+            white-space: normal;
+        }
+
+        .grid {
+            grid-template-columns: 1fr;
+        }
+
+        .upload-body,
+        .brand-panel {
+            padding: 24px;
+        }
+    }
 </style>
 
-<div class="upload-container">
+<div class="upload-page">
+    <div class="upload-container">
+        <div class="upload-card">
+            {% csrf_token %}
 
-<div class="upload-card">
-{% csrf_token %}
+            <div class="brand-panel">
+                <div class="company-logo-box">
+                    <img src="{% static 'images/logo-DDPL.svg' %}" alt="Company Logo" class="company-logo">
+                </div>
+                <div>
+                    <h1 class="brand-title">Change Detection</h1>
+                    <p class="brand-subtitle">Upload matching old and new imagery for automated comparison.</p>
+                </div>
+                <div class="brand-chip">GIS Processing</div>
+            </div>
 
-<div class="grid">
+            <div class="upload-body">
+                <div class="section-heading">
+                    <div>
+                        <h2>Image Upload</h2>
+                        <p>Choose both files before starting the detection workflow.</p>
+                    </div>
+                    <div class="format-note">Old image + new image required</div>
+                </div>
 
-<!-- FILE 1 -->
-<div class="dropzone" id="zone1">
-    <h3>📸 Old Image</h3>
-    <p>Drag & Drop or Click</p>
-    <input type="file" id="file1" hidden>
-    <div id="name1" class="file-name"></div>
-</div>
+                <div class="grid">
+                    <div class="dropzone" id="zone1" data-step="01">
+                        <div class="zone-top">
+                            <div class="zone-icon">O</div>
+                            <div>
+                                <h3>Old Image</h3>
+                                <p>Drag and drop or select from your system</p>
+                            </div>
+                        </div>
+                        <input type="file" id="file1" hidden>
+                        <div class="zone-footer">
+                            <div id="name1" class="file-name">No file selected</div>
+                            <span class="browse-pill">Browse</span>
+                        </div>
+                    </div>
 
-<!-- FILE 2 -->
-<div class="dropzone" id="zone2">
-    <h3>🗺️ New Image</h3>
-    <p>Drag & Drop or Click</p>
-    <input type="file" id="file2" hidden>
-    <div id="name2" class="file-name"></div>
-</div>
+                    <div class="dropzone" id="zone2" data-step="02">
+                        <div class="zone-top">
+                            <div class="zone-icon">N</div>
+                            <div>
+                                <h3>New Image</h3>
+                                <p>Drag and drop or select from your system</p>
+                            </div>
+                        </div>
+                        <input type="file" id="file2" hidden>
+                        <div class="zone-footer">
+                            <div id="name2" class="file-name">No file selected</div>
+                            <span class="browse-pill">Browse</span>
+                        </div>
+                    </div>
+                </div>
 
-</div>
+                <button class="upload-btn" onclick="startUpload()" id="btn">
+                    Start Upload
+                </button>
 
-<button class="upload-btn" onclick="startUpload()" id="btn">
-🚀 Start Upload
-</button>
-
-<div class="progress-wrapper" id="progressWrap">
-    <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-wrapper" id="progressWrap">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText"></div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="progress-text" id="progressText"></div>
-</div>
-
-</div>
 </div>
 
 <script>
+    // ===== DRAG DROP =====
+    function setupDrop(zoneId, fileId, nameId) {
+        let zone = document.getElementById(zoneId);
+        let input = document.getElementById(fileId);
 
-// ===== DRAG DROP =====
-function setupDrop(zoneId, fileId, nameId) {
+        zone.onclick = () => input.click();
 
-    let zone = document.getElementById(zoneId);
-    let input = document.getElementById(fileId);
+        zone.ondragover = (e) => {
+            e.preventDefault();
+            zone.classList.add("dragover");
+        };
 
-    zone.onclick = () => input.click();
+        zone.ondragleave = () => zone.classList.remove("dragover");
 
-    zone.ondragover = (e) => {
-        e.preventDefault();
-        zone.classList.add("dragover");
-    };
+        zone.ondrop = (e) => {
+            e.preventDefault();
+            zone.classList.remove("dragover");
 
-    zone.ondragleave = () => zone.classList.remove("dragover");
+            input.files = e.dataTransfer.files;
+            showName(input, nameId);
+        };
 
-    zone.ondrop = (e) => {
-        e.preventDefault();
-        zone.classList.remove("dragover");
-
-        input.files = e.dataTransfer.files;
-        showName(input, nameId);
-    };
-
-    input.onchange = () => showName(input, nameId);
-}
-
-function showName(input, id) {
-    document.getElementById(id).innerHTML = input.files[0].name;
-}
-
-setupDrop("zone1","file1","name1");
-setupDrop("zone2","file2","name2");
-
-
-// ===== UPLOAD =====
-// ===== UPLOAD =====
-async function startUpload() {
-
-    let f1 = document.getElementById("file1").files[0];
-    let f2 = document.getElementById("file2").files[0];
-
-    if(!f1 || !f2){
-        alert("Select both files");
-        return;
+        input.onchange = () => showName(input, nameId);
     }
 
-    try {
-        await checkProcessingAvailability();
+    function showName(input, id) {
+        const nameBox = document.getElementById(id);
+        nameBox.innerHTML = input.files[0] ? input.files[0].name : "No file selected";
+    }
 
-        document.getElementById("progressWrap").style.display="block";
-        document.getElementById("progressText").innerHTML = "Uploading...";
+    setupDrop("zone1", "file1", "name1");
+    setupDrop("zone2", "file2", "name2");
 
-        // Upload both files
-        const file1_path = await simpleUpload(f1);
-        document.getElementById("progressFill").style.width = "50%";
-        
-        const file2_path = await simpleUpload(f2);
-        document.getElementById("progressFill").style.width = "100%";
-        
-        console.log("Both files uploaded:", file1_path, file2_path);
-        
-        // Now process
-        document.getElementById("progressText").innerHTML = "Processing...";
-        
-        const response = await fetch('/start-processing/', {
-            method:'POST',
-            headers:{
-                'Content-Type':'application/json',
-                'X-CSRFToken': getCSRF()
-            },
-            body:JSON.stringify({
-                file1: file1_path,
-                file2: file2_path
-            })
-        });
-        
-        const result = await response.json();
-        console.log("Start processing response:", result);
-        
-        if (!response.ok) {
-            throw new Error(result.error || 'Processing failed');
-        }
-        
-        if (result.status === "SUCCESS" && result.result && result.result.id) {
-            window.location.href = "/result/?id=" + result.result.id;
+    // ===== UPLOAD =====
+    async function startUpload() {
+        let f1 = document.getElementById("file1").files[0];
+        let f2 = document.getElementById("file2").files[0];
+
+        if (!f1 || !f2) {
+            alert("Select both files");
             return;
         }
 
-        checkStatus(result.task_id);
-        
-    } catch (error) {
-        console.error("Upload/processing error:", error);
-        alert("Error: " + error.message);
-        document.getElementById("progressWrap").style.display = "none";
-    }
-}
+        try {
+            await checkProcessingAvailability();
 
+            document.getElementById("progressWrap").style.display = "block";
+            document.getElementById("progressText").innerHTML = "Uploading...";
 
-async function checkProcessingAvailability() {
-    const response = await fetch('/processing-availability/', {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': getCSRF()
+            const file1_path = await simpleUpload(f1);
+            document.getElementById("progressFill").style.width = "50%";
+
+            const file2_path = await simpleUpload(f2);
+            document.getElementById("progressFill").style.width = "100%";
+
+            console.log("Both files uploaded:", file1_path, file2_path);
+
+            document.getElementById("progressText").innerHTML = "Processing...";
+
+            const response = await fetch('/start-processing/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRF()
+                },
+                body: JSON.stringify({
+                    file1: file1_path,
+                    file2: file2_path
+                })
+            });
+
+            const result = await response.json();
+            console.log("Start processing response:", result);
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Processing failed');
+            }
+
+            if (result.status === "SUCCESS" && result.result && result.result.id) {
+                window.location.href = "/result/?id=" + result.result.id;
+                return;
+            }
+
+            checkStatus(result.task_id);
+        } catch (error) {
+            console.error("Upload/processing error:", error);
+            alert("Error: " + error.message);
+            document.getElementById("progressWrap").style.display = "none";
         }
-    });
-
-    const data = await response.json();
-    if (!response.ok || data.available === false) {
-        throw new Error(data.error || 'Server busy. Please wait until current processing finishes.');
     }
-}
 
-
-// ===== SIMPLE UPLOAD (FALLBACK) =====
-async function simpleUpload(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-        const response = await fetch('/upload-chunk/', {
-            method: 'POST',
-            body: formData,
+    async function checkProcessingAvailability() {
+        const response = await fetch('/processing-availability/', {
+            method: 'GET',
             headers: {
                 'X-CSRFToken': getCSRF()
             }
         });
-        
+
         const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Upload failed');
+        if (!response.ok || data.available === false) {
+            throw new Error(data.error || 'Server busy. Please wait until current processing finishes.');
         }
-        return data.file_path;
-    } catch (error) {
-        console.error('Simple upload failed:', error);
-        throw error;
     }
-}
 
+    async function simpleUpload(file) {
+        const formData = new FormData();
+        formData.append('file', file);
 
-// ===== STATUS =====
-function checkStatus(id){
+        try {
+            const response = await fetch('/upload-chunk/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCSRF()
+                }
+            });
 
-    let i=setInterval(()=>{
-
-        fetch('/task-status/'+id+'/')
-        .then(r=>r.json())
-        .then(d=>{
-            if(d.status==="SUCCESS"){
-                clearInterval(i);
-                window.location.href="/result/?id="+d.result.id;
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
             }
-        });
-
-    },4000);
-}
-
-
-// ===== CSRF =====
-function getCSRF(){
-    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (tokenInput) {
-        return tokenInput.value;
+            return data.file_path;
+        } catch (error) {
+            console.error('Simple upload failed:', error);
+            throw error;
+        }
     }
 
-    const cookieMatch = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : "";
-}
+    function checkStatus(id) {
+        let i = setInterval(() => {
+            fetch('/task-status/' + id + '/')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === "SUCCESS") {
+                        clearInterval(i);
+                        window.location.href = "/result/?id=" + d.result.id;
+                    }
+                });
+        }, 4000);
+    }
 
+    function getCSRF() {
+        const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (tokenInput) {
+            return tokenInput.value;
+        }
+
+        const cookieMatch = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        return cookieMatch ? decodeURIComponent(cookieMatch[1]) : "";
+    }
 </script>
 
 {% endblock %}
