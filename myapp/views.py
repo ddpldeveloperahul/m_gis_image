@@ -702,6 +702,7 @@ def start_processing(request):
 @csrf_exempt
 def task_status(request, task_id):
     """Get the status of a Celery task"""
+    # pyrefly: ignore [missing-import]
     from celery.result import AsyncResult
     
     print(f"Task status request for task_id: {task_id}")
